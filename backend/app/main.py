@@ -1,13 +1,12 @@
 # backend/app/main.py
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from typing import List, Optional
 import uvicorn
 import os
 import tempfile
 import shutil
+import traceback
 from datetime import datetime
 
 from app.services.file_processor import process_libro_diario, process_sumas_saldos
@@ -17,20 +16,14 @@ from app.schemas.libro_diario import FileUploadResponse, ValidationResult, Proce
 
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
 
-app.mount("/", StaticFiles(directory="../frontend/build", html=True), name="static")
-
 # Configurar CORS para permitir solicitudes desde el frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # Permite todas las origins en desarrollo
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Especifica los métodos permitidos
+    allow_headers=["*"],  # Permite todos los headers
 )
-
-@app.get("/{full_path:path}")
-async def react_app(full_path: str):
-    return FileResponse("../frontend/build/index.html")
 
 @app.get("/")
 async def root():
@@ -45,12 +38,12 @@ async def upload_files(
     libro_diario_files: List[UploadFile] = File(...),
     sumas_saldos_files: Optional[List[UploadFile]] = File(None)
 ):
-    # Crear directorio temporal para los archivos
-    temp_dir = tempfile.mkdtemp()
-    libro_paths = []
-    sumas_paths = []
-    
     try:
+        # Crear directorio temporal para los archivos
+        temp_dir = tempfile.mkdtemp()
+        libro_paths = []
+        sumas_paths = []
+        
         # Guardar archivos de libro diario
         for file in libro_diario_files:
             temp_file_path = os.path.join(temp_dir, file.filename)
@@ -71,14 +64,17 @@ async def upload_files(
             "project": project,
             "year": year,
             "date_range": f"{start_date} - {end_date}",
-            "libro_diario_files": [{"name": file.filename, "size": file.size} for file in libro_diario_files],
-            "sumas_saldos_files": [{"name": file.filename, "size": file.size} for file in sumas_saldos_files] if sumas_saldos_files else [],
+            "libro_diario_files": [{"name": file.filename, "size": 0} for file in libro_diario_files],
+            "sumas_saldos_files": [{"name": file.filename, "size": 0} for file in sumas_saldos_files] if sumas_saldos_files else [],
             "temp_dir": temp_dir
         }
     
     except Exception as e:
+        print(f"Error en upload_files: {str(e)}")
+        traceback.print_exc()
         # Limpiar directorio en caso de error
-        shutil.rmtree(temp_dir)
+        if 'temp_dir' in locals():
+            shutil.rmtree(temp_dir)
         raise HTTPException(status_code=500, detail=f"Error al procesar archivos: {str(e)}")
 
 @app.post("/api/validate", response_model=ValidationResult)
@@ -105,6 +101,8 @@ async def validate(
         return validation_results
     
     except Exception as e:
+        print(f"Error en validate: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error en la validación: {str(e)}")
 
 @app.post("/api/process", response_model=ProcessResult)
@@ -118,11 +116,12 @@ async def process(
             raise HTTPException(status_code=400, detail="El directorio temporal no existe")
         
         # Procesar los archivos de libro diario
-        libro_files = [f for f in os.listdir(temp_dir) if f.lower().endswith(('.txt', '.csv', '.xlsx', '.xls'))]
+        libro_files = [f for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f)) and f.lower().endswith(('.txt', '.csv', '.xlsx', '.xls'))]
         
-        # Simplificar la validación del ID - aceptar cualquier ID por ahora
-        # Para producción, deberías verificar que el ID existe en una base de datos o cache
-        # En lugar de una validación estricta, vamos a aceptar cualquier ID no vacío
+        if not libro_files:
+            raise HTTPException(status_code=400, detail="No se encontraron archivos para procesar")
+            
+        # Aceptar cualquier ID de validación por ahora
         if not validation_id:
             raise HTTPException(status_code=400, detail="ID de validación vacío")
         
@@ -136,19 +135,20 @@ async def process(
             return {
                 "accounting_date_range": summary["accounting_date_range"],
                 "registration_date_range": summary["registration_date_range"],
-                "entries": result["entries"][:10],  # Limitamos a 10 entradas para evitar respuestas demasiado grandes
+                "entries": result["entries"][:10],  # Limitamos a 10 entradas para reducir tamaño
                 "summary": summary["activity_summary"]
             }
         except Exception as e:
             print(f"Error de procesamiento: {str(e)}")
+            traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Error en el procesamiento de archivos: {str(e)}")
             
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error general: {str(e)}")
+        print(f"Error general en process: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error en el procesamiento: {str(e)}")
-    
 
 @app.on_event("shutdown")
 async def cleanup():
@@ -157,4 +157,4 @@ async def cleanup():
     pass
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
