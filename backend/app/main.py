@@ -1,6 +1,8 @@
 # backend/app/main.py
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 from typing import List, Optional
 import uvicorn
 import os
@@ -9,6 +11,19 @@ import shutil
 import traceback
 from datetime import datetime
 
+# Debug output
+print(f"Current working directory: {os.getcwd()}")
+frontend_path = "../frontend/build"
+print(f"Frontend build path exists: {os.path.exists(frontend_path)}")
+try:
+    print(f"Parent directory contents: {os.listdir('..')}")
+    if os.path.exists("../frontend"):
+        print(f"Frontend directory contents: {os.listdir('../frontend')}")
+        if os.path.exists(frontend_path):
+            print(f"Build directory contents: {os.listdir(frontend_path)}")
+except Exception as e:
+    print(f"Error exploring directories: {str(e)}")
+
 from app.services.file_processor import process_libro_diario, process_sumas_saldos
 from app.services.validators import validate_files
 from app.services.analyzers import generate_summary
@@ -16,16 +31,16 @@ from app.schemas.libro_diario import FileUploadResponse, ValidationResult, Proce
 
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
 
-# Configurar CORS para permitir solicitudes desde el frontend
+# Single CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite todas las origins en desarrollo
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Especifica los métodos permitidos
-    allow_headers=["*"],  # Permite todos los headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
-@app.get("/")
+@app.get("/api")
 async def root():
     return {"message": "SmartAudit API"}
 
@@ -39,7 +54,7 @@ async def upload_files(
     sumas_saldos_files: Optional[List[UploadFile]] = File(None)
 ):
     try:
-        # Crear directorio temporal para los archivos
+        # Your existing code
         temp_dir = tempfile.mkdtemp()
         libro_paths = []
         sumas_paths = []
@@ -85,6 +100,7 @@ async def validate(
     start_date: str = Form(...),
     end_date: str = Form(...)
 ):
+    # Your existing code
     try:
         # Validar que el directorio temporal existe
         if not os.path.exists(temp_dir):
@@ -110,6 +126,7 @@ async def process(
     temp_dir: str = Form(...),
     validation_id: str = Form(...)
 ):
+    # Your existing code
     try:
         # Verificar que el directorio temporal existe
         if not os.path.exists(temp_dir):
@@ -149,6 +166,45 @@ async def process(
         print(f"Error general en process: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error en el procesamiento: {str(e)}")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_path = os.path.join(frontend_path, "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    return JSONResponse(status_code=404, content={"message": "Favicon not found"})
+
+# Serve static files from the /static directory
+@app.get("/static/{file_path:path}")
+async def serve_static(file_path: str):
+    full_path = os.path.join(frontend_path, "static", file_path)
+    if os.path.exists(full_path) and os.path.isfile(full_path):
+        return FileResponse(full_path)
+    return JSONResponse(status_code=404, content={"message": f"Static file {file_path} not found"})
+
+# Fallback for React routes - MUST be the last route
+@app.get("/{full_path:path}")
+async def serve_react(full_path: str):
+    # First try to serve the file directly if it exists
+    direct_path = os.path.join(frontend_path, full_path)
+    if os.path.exists(direct_path) and os.path.isfile(direct_path):
+        return FileResponse(direct_path)
+    
+    # Otherwise fallback to index.html for client-side routing
+    index_path = os.path.join(frontend_path, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    
+    # If even index.html doesn't exist, return a helpful error
+    return JSONResponse(
+        status_code=404, 
+        content={
+            "message": "Frontend build not found. Make sure you've built your React app and the build directory exists.",
+            "requested_path": full_path,
+            "expected_dir": frontend_path
+        }
+    )
 
 @app.on_event("shutdown")
 async def cleanup():
