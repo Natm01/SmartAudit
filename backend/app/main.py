@@ -1,6 +1,8 @@
 # backend/app/main.py
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import List, Optional
 import uvicorn
 import os
@@ -15,6 +17,8 @@ from app.schemas.libro_diario import FileUploadResponse, ValidationResult, Proce
 
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
 
+app.mount("/", StaticFiles(directory="../frontend/build", html=True), name="static")
+
 # Configurar CORS para permitir solicitudes desde el frontend
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +27,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/{full_path:path}")
+async def react_app(full_path: str):
+    return FileResponse("../frontend/build/index.html")
 
 @app.get("/")
 async def root():
@@ -149,4 +157,4 @@ async def cleanup():
     pass
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
