@@ -1,0 +1,12 @@
+# backend/requirements.txt
+fastapi>=0.95.0
+uvicorn>=0.20.0
+python-multipart>=0.0.5
+pandas>=1.5.0
+openpyxl>=3.0.10
+python-dateutil>=2.8.2
+pydantic>=1.10.12,<2.0.0  # Usar la versión 1.x que no requiere Rust
+gunicorn>=20.1.0
+aiofiles>=22.0.0
+pytest>=7.0.0
+httpx>=0.23.0
