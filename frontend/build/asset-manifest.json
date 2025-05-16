@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/static/css/main.87f8609c.css",
-    "main.js": "/static/js/main.fe5f47c5.js",
+    "main.js": "/static/js/main.a9f9c46f.js",
     "static/media/logo-positivo.png": "/static/media/logo-positivo.2462adc58eac573870ac.png",
     "index.html": "/index.html",
     "main.87f8609c.css.map": "/static/css/main.87f8609c.css.map",
-    "main.fe5f47c5.js.map": "/static/js/main.fe5f47c5.js.map"
+    "main.a9f9c46f.js.map": "/static/js/main.a9f9c46f.js.map"
   },
   "entrypoints": [
     "static/css/main.87f8609c.css",
-    "static/js/main.fe5f47c5.js"
+    "static/js/main.a9f9c46f.js"
   ]
 }
