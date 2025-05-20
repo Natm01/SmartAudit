@@ -18,6 +18,9 @@ Write-Host "Versión de npm: $(npm --version)" -ForegroundColor Cyan
 # Instalar dependencias primero
 Write-Host "4. Instalando dependencias (esto puede tomar unos minutos)..." -ForegroundColor Yellow
 npm install
+npm audit fix --force  
+
+npm install react-router-dom
 
 npm install tailwindcss postcss autoprefixer
 

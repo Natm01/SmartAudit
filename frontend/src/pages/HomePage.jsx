@@ -1,6 +1,7 @@
 // frontend/src/pages/HomePage.jsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FileText, BarChart2, Users, CheckCircle, ArrowRight } from 'lucide-react';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -13,64 +14,85 @@ const HomePage = () => {
     {
       id: 'importacion',
       title: 'Importación Libro Diario',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-700">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-      )
+      description: 'Cargar y validar archivos contables de forma automática',
+      icon: <FileText size={28} className="text-white" />,
+      color: 'from-purple-600 to-purple-800',
+      accentColor: 'bg-purple-100',
+      textColor: 'text-purple-700'
     },
     {
       id: 'analisis-jet',
       title: 'Análisis JET',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-700">
-          <path d="M3 3v18h18"/>
-          <path d="M18 17V9"/>
-          <path d="M13 17V5"/>
-          <path d="M8 17v-3"/>
-        </svg>
-      )
+      description: 'Ejecutar filtros avanzados sobre el libro diario',
+      icon: <BarChart2 size={28} className="text-white" />,
+      color: 'from-purple-700 to-purple-900',
+      accentColor: 'bg-purple-50',
+      textColor: 'text-purple-800'
     },
     {
       id: 'analisis-riesgos',
-      title: 'Análisis de riesgos',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-700">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-      )
+      title: 'Análisis de Riesgos',
+      description: 'Evaluación y detección de riesgos contables',
+      icon: <Users size={28} className="text-white" />,
+      color: 'from-purple-600 to-purple-800',
+      accentColor: 'bg-purple-100',
+      textColor: 'text-purple-700'
     },
     {
       id: 'analisis-obsolescencia',
-      title: 'Análisis de obsolescencia',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-700">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-      )
+      title: 'Análisis de Obsolescencia',
+      description: 'Identificación de inventario obsoleto y patrones',
+      icon: <CheckCircle size={28} className="text-white" />,
+      color: 'from-purple-700 to-purple-900',
+      accentColor: 'bg-purple-50',
+      textColor: 'text-purple-800'
     }
   ];
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-8">Aplicaciones</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">Aplicaciones</h2>
+        <p className="text-gray-600">Selecciona una aplicación para comenzar el análisis contable</p>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {applications.map((app) => (
           <div
             key={app.id}
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow transition-shadow"
+            className="group relative bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden border border-gray-100"
             onClick={() => handleNavigation(app.id)}
           >
-            <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+            {/* Gradient Background */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${app.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+            
+            {/* Content */}
+            <div className="relative p-8">
+              {/* Icon with gradient background */}
+              <div className={`bg-gradient-to-br ${app.color} rounded-2xl w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                 {app.icon}
               </div>
-              <h3 className="font-medium text-gray-800 text-sm">{app.title}</h3>
+              
+              {/* Title and Description */}
+              <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-purple-700 transition-colors duration-300">
+                {app.title}
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                {app.description}
+              </p>
+              
+              {/* Action Button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-purple-700 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
+                  <span className="text-sm font-semibold mr-2">Acceder</span>
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform duration-300" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-24 h-24 opacity-5">
+              <div className={`w-full h-full bg-gradient-to-br ${app.color} rounded-full transform translate-x-8 -translate-y-8`}></div>
             </div>
           </div>
         ))}

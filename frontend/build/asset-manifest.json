@@ -1,14 +1,16 @@
 {
   "files": {
-    "main.css": "/static/css/main.87f8609c.css",
-    "main.js": "/static/js/main.a9f9c46f.js",
+    "main.css": "/static/css/main.fda2ff49.css",
+    "main.js": "/static/js/main.17362411.js",
+    "static/js/238.fc79cd82.chunk.js": "/static/js/238.fc79cd82.chunk.js",
     "static/media/logo-positivo.png": "/static/media/logo-positivo.2462adc58eac573870ac.png",
     "index.html": "/index.html",
-    "main.87f8609c.css.map": "/static/css/main.87f8609c.css.map",
-    "main.a9f9c46f.js.map": "/static/js/main.a9f9c46f.js.map"
+    "main.fda2ff49.css.map": "/static/css/main.fda2ff49.css.map",
+    "main.17362411.js.map": "/static/js/main.17362411.js.map",
+    "238.fc79cd82.chunk.js.map": "/static/js/238.fc79cd82.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.87f8609c.css",
-    "static/js/main.a9f9c46f.js"
+    "static/css/main.fda2ff49.css",
+    "static/js/main.17362411.js"
   ]
 }
