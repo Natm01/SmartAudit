@@ -12,8 +12,11 @@ const AnalisisObsolescenciaPage = () => {
       start: '',
       end: ''
     },
+    obsolescence: {
+      value: '',
+      unit: 'meses'
+    },
     files: {
-      inventory: [],
       transactions: [],
       movements: [],
       types: []
@@ -26,7 +29,7 @@ const AnalisisObsolescenciaPage = () => {
     loading: false,
     steps: [
       { id: 'load', label: 'Cargando archivos', done: false },
-      { id: 'obsolete', label: 'Validando meses obsoletos', done: false },
+      { id: 'obsolete', label: 'Configurando criterios de obsolescencia', done: false },
       { id: 'inventory', label: 'Validando inventario', done: false },
       { id: 'trans', label: 'Validando transacciones', done: false },
       { id: 'types', label: 'Validando tipos de movimientos', done: false }
@@ -39,12 +42,19 @@ const AnalisisObsolescenciaPage = () => {
     { id: "00042009", name: "GRUP INUIT, S.A." }
   ];
 
+  const timeUnitOptions = [
+    { value: 'dias', label: 'Días' },
+    { value: 'semanas', label: 'Semanas' },
+    { value: 'meses', label: 'Meses' },
+    { value: 'años', label: 'Años' }
+  ];
+
   // Mock validation results
   const mockValidationResults = [
     {
-      fileName: "Inventario_24.xlsx",
+      fileName: "Criterios de obsolescencia",
       status: "success",
-      message: "Archivo validado correctamente"
+      message: "Criterios configurados correctamente"
     },
     {
       fileName: "InvenTrans_25.xlsx", 
@@ -239,7 +249,9 @@ const AnalisisObsolescenciaPage = () => {
       return formData.project && 
              formData.period.start && 
              formData.period.end && 
-             formData.files.inventory.length > 0;
+             formData.obsolescence.value && 
+             formData.obsolescence.unit &&
+             formData.files.transactions.length > 0;
     }
     if (currentStep === 2) {
       return validationData && validationData.every(result => result.status === 'success');
@@ -259,33 +271,37 @@ const AnalisisObsolescenciaPage = () => {
     }
   };
 
-  const downloadResults = () => {
-    const csvContent = [
-      'Familia de producto,Unidades,Datos inventario,Unidades lenta rotación,Importe,Porcentaje,Importe %',
-      ...mockAnalysisResults.families.map(family => 
-        `${family.name},${family.units},${family.inventoryValue.toFixed(2)},${family.slowMovingUnits},${family.slowMovingValue.toFixed(2)},${family.percentage}%,${family.valuePercentage}%`
-      ),
-      `Total,${mockAnalysisResults.totals.units},${mockAnalysisResults.totals.inventoryValue.toFixed(2)},${mockAnalysisResults.totals.slowMovingUnits},${mockAnalysisResults.totals.slowMovingValue.toFixed(2)},${mockAnalysisResults.totals.percentage}%,${mockAnalysisResults.totals.valuePercentage}%`
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `analisis_obsolescencia_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const downloadResults = async () => {
+    try {
+      // Establecemos la URL de nuestro archivo Excel existente
+      const excelFilePath = 'frontend\Ejemplo LentaRotación.xlsx';
+      
+      // Crearemos una función para descargar el archivo directamente
+      const response = await fetch(excelFilePath);
+      
+      if (!response.ok) {
+        throw new Error(`Error al descargar el archivo: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `analisis_obsolescencia_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('Archivo Excel descargado correctamente');
+    } catch (error) {
+      console.error('Error al descargar el archivo Excel:', error);
+      alert('Error al descargar el archivo. Por favor, inténtelo de nuevo más tarde.');
+    }
   };
 
   // File sections mapping for the import step
   const fileSections = [
-    { 
-      key: 'inventory', 
-      label: 'Meses a los que se considera obsoleto', 
-      help: 'Selecciona los meses a partir de los cuales se considera un producto obsoleto'
-    },
     { 
       key: 'transactions', 
       label: 'Inventario a fin del período', 
@@ -465,6 +481,50 @@ const AnalisisObsolescenciaPage = () => {
                 />
               </div>
             </div>
+
+            {/* Obsolescence criteria - NEW FIELD */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Meses a los que se considera obsoleto</label>
+              <div className="">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label htmlFor="obsolescenceValue" className="block text-xs text-gray-600 mb-1">
+                      Valor
+                    </label>
+                    <input 
+                      type="number"
+                      id="obsolescenceValue"
+                      min="1"
+                      className="w-full rounded-md border border-gray-300 p-2"
+                      value={formData.obsolescence.value}
+                      onChange={(e) => handleInputChange('obsolescence.value', e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label htmlFor="obsolescenceUnit" className="block text-xs text-gray-600 mb-1">
+                      Unidad de tiempo
+                    </label>
+                    <select
+                      id="obsolescenceUnit"
+                      className="w-full rounded-md border border-gray-300 p-2"
+                      value={formData.obsolescence.unit}
+                      onChange={(e) => handleInputChange('obsolescence.unit', e.target.value)}
+                    >
+                      {timeUnitOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {formData.obsolescence.value && formData.obsolescence.unit ? (
+                    <>Se considerará obsoleto todo producto sin movimiento durante {formData.obsolescence.value} {formData.obsolescence.unit}</>
+                  ) : 'Introduzca un valor y seleccione una unidad de tiempo'}
+                </p>
+              </div>
+            </div>
             
             {/* File uploads - Same style as Libro Diario */}
             {fileSections.map((section) => (
@@ -540,7 +600,6 @@ const AnalisisObsolescenciaPage = () => {
               ) : (
                 <>
                   Siguiente
-                  
                 </>
               )}
             </button>
@@ -557,7 +616,7 @@ const AnalisisObsolescenciaPage = () => {
                   <div className="flex items-center">
                     <CheckCircle className="text-green-500 mr-3" size={18} />
                     <div>
-                      <span className="foncdt-medium">{result.fileName}</span>
+                      <span className="font-medium">{result.fileName}</span>
                       <span className="text-sm text-gray-500 ml-2">{result.message}</span>
                     </div>
                   </div>
@@ -609,6 +668,24 @@ const AnalisisObsolescenciaPage = () => {
           <h3 className="text-xl font-medium text-gray-800 mb-6">Resultados del análisis</h3>
           
           <div className="space-y-6">
+            {/* Información de parametrización */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 mb-2">Análisis realizado con los siguientes parámetros:</p>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                <div className="flex items-center">
+                  <span className="text-xs font-medium text-gray-500 mr-1">Periodo:</span>
+                  <span className="text-sm text-gray-900">
+                    {formData.period.start && new Date(formData.period.start).toLocaleDateString()} - 
+                    {formData.period.end && new Date(formData.period.end).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-xs font-medium text-gray-500 mr-1">Meses obsolescencia:</span>
+                  <span className="text-sm text-gray-900 font-semibold">{formData.obsolescenceMonths} meses</span>
+                </div>
+              </div>
+            </div>
+            
             {/* Summary Table */}
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
@@ -674,7 +751,7 @@ const AnalisisObsolescenciaPage = () => {
                 className="bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition flex items-center gap-2"
               >
                 <Download size={16} />
-                Descargar CSV
+                Descargar resultados
               </button>
             </div>
           </div>
