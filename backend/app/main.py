@@ -16,6 +16,15 @@ print(f"Current working directory: {os.getcwd()}")
 frontend_path = "../frontend/build"
 print(f"Frontend build path exists: {os.path.exists(frontend_path)}")
 
+try:
+    print(f"Parent directory contents: {os.listdir('..')}")
+    if os.path.exists("../frontend"):
+        print(f"Frontend directory contents: {os.listdir('../frontend')}")
+        if os.path.exists(frontend_path):
+            print(f"Build directory contents: {os.listdir(frontend_path)}")
+except Exception as e:
+    print(f"Error exploring directories: {str(e)}")
+
 from app.services.file_processor import process_libro_diario, process_sumas_saldos, parse_sumas_saldos_excel
 from app.services.validators import validate_files
 from app.services.analyzers import generate_summary
