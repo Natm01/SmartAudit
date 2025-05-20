@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 // Función de ayuda para manejar respuestas de la API
 const handleResponse = async (response) => {
   if (!response.ok) {
