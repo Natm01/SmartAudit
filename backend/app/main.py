@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 # Ruta del frontend y favicon
-FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/build"))
+FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../frontend/build"))
 FAVICON_PATH = os.path.join(FRONTEND_PATH, "favicon.ico")
 
 # Servir archivos estáticos del frontend si existe
