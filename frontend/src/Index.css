@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ajuste de tamaño base para todas las pantallas */
+html {
+  font-size: 14.4px; /* 90% del tamaño original de 16px */
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -9,6 +14,15 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ancho máximo fijo para componentes principales */
+.container {
+  width: 100%;
+  max-width: 1440px !important;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 code {
@@ -82,4 +96,26 @@ h1, h2, h3, h4, h5, h6 {
 /* Add purple gradient background for certain UI elements if desired */
 .purple-gradient {
   background: linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%);
+}
+
+/* Media queries para ajustar según el tamaño de pantalla */
+@media (max-width: 1440px) {
+  .app-content {
+    scale: 0.95;
+    transform-origin: top center;
+  }
+}
+
+@media (max-width: 1280px) {
+  .app-content {
+    scale: 0.9;
+    transform-origin: top center;
+  }
+}
+
+@media (min-width: 1441px) {
+  .app-content {
+    scale: 1;
+    transform-origin: top center;
+  }
 }

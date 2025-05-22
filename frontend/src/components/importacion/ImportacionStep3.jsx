@@ -439,14 +439,14 @@ const ImportacionStep3 = ({ tempDir, validationId, processData, onProcessComplet
       <div className="mt-8 flex justify-between">
         <button 
           onClick={onPrev}
-          className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
+          className="border border-gray-300 text-gray-700 px-2 py-2 rounded-lg hover:bg-gray-50 transition flex items-center text-sm gap-2"
         >
           <ArrowLeft size={16} />
           Anterior
         </button>
         <button 
           onClick={onFinish}
-          className="bg-purple-700 text-white px-6 py-3 rounded-lg hover:bg-purple-800 transition"
+          className="bg-purple-700 text-white px-4 py-2 rounded-lg hover:bg-purple-800 text-sm transition"
         >
           Finalizar
         </button>

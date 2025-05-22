@@ -1,210 +1,296 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
-// Función de ayuda para manejar respuestas de la API
-const handleResponse = async (response) => {
+// frontend/src/services/api.js
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+
+class APIError extends Error {
+  constructor(message, status, response) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.response = response;
+  }
+}
+
+const handleApiResponse = async (response) => {
+  let responseData;
+  
+  try {
+    responseData = await response.json();
+  } catch (e) {
+    responseData = { detail: 'Error parsing response' };
+  }
+
   if (!response.ok) {
-    const errorText = await response.text();
-    try {
-      const errorData = JSON.parse(errorText);
-      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-    } catch {
-      throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
-    }
+    const errorMessage = responseData?.detail || `HTTP Error ${response.status}`;
+    console.error('API Error:', {
+      status: response.status,
+      message: errorMessage,
+      url: response.url,
+      data: responseData
+    });
+    throw new APIError(errorMessage, response.status, responseData);
   }
-  return response.json();
+
+  return responseData;
 };
 
-// Función de ayuda para manejar errores de red
-const handleNetworkError = (error) => {
-  if (error.name === 'TypeError' && error.message.includes('fetch')) {
-    throw new Error('Error de conexión. Verifique su conexión a internet y que el servidor esté ejecutándose.');
-  }
-  throw error;
-};
-
-// Subir archivos al servidor
 export const uploadFiles = async (formData) => {
+  console.log('Uploading files...');
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    return await handleResponse(response);
-  } catch (error) {
-    handleNetworkError(error);
-  }
-};
-
-// Validar archivos
-export const validateFiles = async (formData) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/validate`, {
-      method: 'POST',
-      body: formData,
-    });
-    return await handleResponse(response);
-  } catch (error) {
-    handleNetworkError(error);
-  }
-};
-
-// Procesar archivos
-export const processFiles = async (formData) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/process`, {
-      method: 'POST',
-      body: formData,
-    });
-    return await handleResponse(response);
-  } catch (error) {
-    handleNetworkError(error);
-  }
-};
-
-// Obtener datos de previsualización (simulado para desarrollo)
-export const getPreviewData = async (tempDir, fileType = 'libro') => {
-  try {
-    // En un entorno de producción, esto haría una llamada real al backend
-    // Para desarrollo, retornamos datos mockeados
-    if (fileType === 'libro') {
-      return {
-        entries: generateMockLibroEntries(),
-        total: 150
-      };
-    } else if (fileType === 'sumas') {
-      return {
-        records: generateMockSumasSaldosRecords(),
-        total: 471
-      };
+    // Log form data contents for debugging
+    for (let pair of formData.entries()) {
+      if (pair[1] instanceof File) {
+        console.log(`${pair[0]}: File - ${pair[1].name} (${pair[1].size} bytes)`);
+      } else {
+        console.log(`${pair[0]}: ${pair[1]}`);
+      }
     }
+
+    const response = await fetch(`${API_BASE_URL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+      // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
+    });
+
+    const result = await handleApiResponse(response);
+    console.log('Upload successful:', result);
+    return result;
+    
   } catch (error) {
-    handleNetworkError(error);
-  }
-};
-
-// Función auxiliar para generar entradas de libro diario mockeadas
-const generateMockLibroEntries = () => {
-  const entries = [];
-  for (let i = 1; i <= 10; i++) {
-    const entry = {
-      entry_number: `0000000${i}`,
-      document_number: `010000000${i}`,
-      accounting_date: '010124',
-      doc_date: '010124',
-      header_text: i % 2 === 0 ? 'Cobros por Tarjeta' : 'Pagos Diversos',
-      lines: [
-        {
-          account_name: 'PASARELA PAGO EXPOS.',
-          account_number: '57200001',
-          debit: i * 1000.28,
-          credit: 0
-        },
-        {
-          account_name: i % 2 === 0 ? 'SANTIAGO GUIJARRO' : 'KEDECORAS S.L.',
-          account_number: '43000043',
-          debit: 0,
-          credit: i * 1000.28
-        }
-      ]
-    };
-    entries.push(entry);
-  }
-  return entries;
-};
-
-// Función auxiliar para generar registros de sumas y saldos mockeados
-const generateMockSumasSaldosRecords = () => {
-  const records = [];
-  const cuentas = [
-    { cuenta: '10000000', descripcion: 'Capital social', arrastre: -412359.99 },
-    { cuenta: '11200000', descripcion: 'Reserva legal', arrastre: -82472 },
-    { cuenta: '11300000', descripcion: 'Reservas voluntarias', arrastre: -2022172.88 },
-    { cuenta: '11800000', descripcion: 'Aportaciones de socios o propietarios', arrastre: -9200000 },
-    { cuenta: '12100000', descripcion: 'Resultados negativos de ejercicios anteriores', arrastre: 9377086.6 },
-    { cuenta: '20000000', descripcion: 'Inmovilizaciones intangibles', arrastre: 15000 },
-    { cuenta: '21000000', descripcion: 'Inmovilizaciones materiales', arrastre: 850000 },
-    { cuenta: '30000000', descripcion: 'Comerciales', arrastre: 45000 },
-    { cuenta: '43000001', descripcion: 'Clientes', arrastre: 125000 },
-    { cuenta: '57000000', descripcion: 'Tesorería', arrastre: 85000 }
-  ];
-  
-  cuentas.forEach((cuenta, index) => {
-    const debe = Math.random() > 0.7 ? Math.random() * 50000 : 0;
-    const haber = Math.random() > 0.7 ? Math.random() * 50000 : 0;
+    console.error('Upload failed:', error);
     
-    records.push({
-      sociedad: 'AV00',
-      cuenta: cuenta.cuenta,
-      descripcion: cuenta.descripcion,
-      moneda: 'EUR',
-      divisa: '',
-      arrastre: cuenta.arrastre,
-      saldoAnterior: 0,
-      debe: debe,
-      haber: haber,
-      saldoAcumulado: cuenta.arrastre + debe - haber
-    });
-  });
-  
-  return records;
+    if (error instanceof APIError) {
+      throw error;
+    }
+    
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new APIError('No se pudo conectar con el servidor. Verifique su conexión.', 0);
+    }
+    
+    throw new APIError(error.message || 'Error desconocido durante la carga de archivos', 500);
+  }
 };
 
-// Descargar archivo de resultados
-export const downloadResults = async (tempDir, format = 'csv') => {
+export const validateFilesWithStreaming = async (formData, onProgress) => {
+  console.log('Starting streaming validation...');
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/download/${tempDir}?format=${format}`, {
-      method: 'GET',
+    const response = await fetch(`${API_BASE_URL}/api/validate-stream`, {
+      method: 'POST',
+      body: formData,
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Error al descargar: ${response.status}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalResult = null;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          console.log('Streaming validation completed');
+          break;
+        }
+
+        // Decode the chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const data = JSON.parse(line);
+              console.log('Received progress update:', data);
+              
+              // Call progress callback
+              if (onProgress) {
+                onProgress(data);
+              }
+              
+              // Store final result
+              if (data.step === 'completed' && data.result) {
+                finalResult = data.result;
+              }
+              
+              // Handle errors
+              if (data.error) {
+                throw new Error(data.message || 'Error en la validación');
+              }
+              
+            } catch (parseError) {
+              console.warn('Error parsing JSON line:', line, parseError);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    if (!finalResult) {
+      throw new Error('No se recibió resultado de validación');
+    }
+
+    console.log('Streaming validation successful:', finalResult);
+    return finalResult;
+    
+  } catch (error) {
+    console.error('Streaming validation failed:', error);
+    
+    if (error instanceof APIError) {
+      throw error;
     }
     
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = `resultados_${new Date().toISOString().split('T')[0]}.${format}`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  } catch (error) {
-    handleNetworkError(error);
+    throw new APIError(error.message || 'Error desconocido durante la validación streaming', 500);
   }
 };
 
-// Limpiar archivos temporales
-export const cleanupTempFiles = async (tempDir) => {
+export const validateFiles = async (formData) => {
+  console.log('Validating files...');
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/cleanup/${tempDir}`, {
+    const response = await fetch(`${API_BASE_URL}/api/validate`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await handleApiResponse(response);
+    console.log('Validation successful:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('Validation failed:', error);
+    
+    if (error instanceof APIError) {
+      throw error;
+    }
+    
+    throw new APIError(error.message || 'Error desconocido durante la validación', 500);
+  }
+};
+
+export const processFiles = async (formData) => {
+  console.log('Processing files...');
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/process`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await handleApiResponse(response);
+    console.log('Processing successful:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('Processing failed:', error);
+    
+    if (error instanceof APIError) {
+      throw error;
+    }
+    
+    throw new APIError(error.message || 'Error desconocido durante el procesamiento', 500);
+  }
+};
+
+export const getPreviewData = async (tempDir, fileType = 'libro') => {
+  console.log(`Getting preview data for ${fileType} from ${tempDir}`);
+  
+  try {
+    // Encode the temp directory path to handle special characters
+    const encodedTempDir = encodeURIComponent(tempDir);
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/preview/${encodedTempDir}?file_type=${fileType}`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
+    );
+
+    const result = await handleApiResponse(response);
+    console.log(`Preview data for ${fileType}:`, result);
+    return result;
+    
+  } catch (error) {
+    console.error(`Preview data failed for ${fileType}:`, error);
+    
+    if (error instanceof APIError) {
+      throw error;
+    }
+    
+    throw new APIError(error.message || 'Error obteniendo datos de previsualización', 500);
+  }
+};
+
+export const cleanupTempFiles = async (tempDir) => {
+  console.log('Cleaning up temporary files:', tempDir);
+  
+  try {
+    if (!tempDir) {
+      console.warn('No temp directory provided for cleanup');
+      return { message: 'No directory provided', cleaned: false };
+    }
+
+    // Encode the temp directory path to handle special characters
+    const encodedTempDir = encodeURIComponent(tempDir);
+    
+    const response = await fetch(`${API_BASE_URL}/api/cleanup/${encodedTempDir}`, {
       method: 'DELETE',
     });
-    return await handleResponse(response);
+
+    // For cleanup, we don't throw errors even if it fails (404, etc.)
+    // since cleanup is not critical for the user flow
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Cleanup result:', result);
+      return result;
+    } else {
+      console.warn(`Cleanup returned ${response.status}, but continuing...`);
+      return { message: `Cleanup returned ${response.status}`, cleaned: false };
+    }
+    
   } catch (error) {
-    // No lanzar error para limpieza ya que es opcional
-    console.warn('Error al limpiar archivos temporales:', error);
+    console.warn('Cleanup failed (non-critical):', error);
+    return { message: error.message, cleaned: false };
   }
 };
 
-// Obtener estadísticas de procesamiento
-export const getProcessingStats = async (tempDir) => {
+// Health check function
+export const healthCheck = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/stats/${tempDir}`, {
-      method: 'GET',
-    });
-    return await handleResponse(response);
+    const response = await fetch(`${API_BASE_URL}/api/health`);
+    const result = await handleApiResponse(response);
+    return result;
   } catch (error) {
-    handleNetworkError(error);
+    console.error('Health check failed:', error);
+    throw error;
   }
 };
 
-export default {
-  uploadFiles,
-  validateFiles,
-  processFiles,
-  getPreviewData,
-  downloadResults,
-  cleanupTempFiles,
-  getProcessingStats
+// Test connection function
+export const testConnection = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api`);
+    const result = await handleApiResponse(response);
+    return result;
+  } catch (error) {
+    console.error('Connection test failed:', error);
+    throw error;
+  }
 };
+
+// Export the APIError class for use in components
+export { APIError };

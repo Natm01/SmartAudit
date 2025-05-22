@@ -1,13 +1,16 @@
 // frontend/src/components/importacion/ImportacionStep1.jsx
 import React, { useState, useEffect } from 'react';
 import { Upload, Trash2, ArrowRight, AlertCircle, Eye, FileText, Download, CheckCircle, Clock, XCircle } from 'lucide-react';
-import { uploadFiles } from '../../services/api';
+import { uploadFiles, APIError } from '../../services/api';
 
-const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) => {
+const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onUploadStart, onUploadError, onNext, isLoading: externalLoading }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [detailedError, setDetailedError] = useState(null);
   const [showHistory, setShowHistory] = useState(true);
+
+  // Usar el estado de carga externo si está disponible, sino usar el interno
+  const loading = externalLoading !== undefined ? externalLoading : isLoading;
 
   // Mock data para el historial de importaciones
   const importHistory = [
@@ -20,7 +23,7 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
       ejercicio: "31/12/2024",
       periodo: "01/01/2024-31/12/2024",
       parametros: "N/A",
-      resultado: "exito", // exito, warning, error
+      resultado: "exito",
       tooltip: "Importación completada exitosamente"
     },
     {
@@ -73,7 +76,7 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
     }
   ];
 
-  // Project options from your specifications
+  // Project options
   const projectOptions = [
     { id: "00041796", name: "HOTELES TURISTICOS UNIDOS, S.A.", type: "Audit CCAA individuales obligatoria", year: "24-25" },
     { id: "00041708", name: "GRUP FLASH RABAT, S.L.", type: "Audit CCAA consolidadas obligatoria", year: "24-25" },
@@ -89,22 +92,30 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Input changed: ${name} = ${value}`);
     onFormChange({ [name]: value });
   };
 
   const handleFileSelection = (e, fileType) => {
+    console.log(`File selection for ${fileType}:`, e.target.files);
+    
     if (e.target.files && e.target.files.length > 0) {
       try {
-        const filesArray = Array.from(e.target.files).map(file => ({
-          name: file.name,
-          size: (file.size / 1024).toFixed(2) + ' KB',
-          type: file.type,
-          file // Guardar el archivo para subir después
-        }));
+        const filesArray = Array.from(e.target.files).map(file => {
+          console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`);
+          return {
+            name: file.name,
+            size: (file.size / 1024).toFixed(2) + ' KB',
+            type: file.type,
+            file // Guardar el archivo para subir después
+          };
+        });
         
         if (fileType === 'libro') {
+          console.log('Adding libro files:', filesArray.length);
           onFormChange({ libroFiles: [...formData.libroFiles, ...filesArray] });
         } else if (fileType === 'sumas') {
+          console.log('Adding sumas files:', filesArray.length);
           onFormChange({ sumasFiles: [...formData.sumasFiles, ...filesArray] });
         }
       } catch (err) {
@@ -112,9 +123,14 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
         setError("Error al procesar los archivos seleccionados.");
       }
     }
+    
+    // Reset input value to allow re-selecting the same file
+    e.target.value = '';
   };
 
   const removeFile = (index, fileType) => {
+    console.log(`Removing file at index ${index} from ${fileType}`);
+    
     if (fileType === 'libro') {
       const newFiles = [...formData.libroFiles];
       newFiles.splice(index, 1);
@@ -197,6 +213,14 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Starting form submission...');
+    console.log('Form data:', formData);
+    
+    // Notificar al componente padre que comenzó la subida
+    if (onUploadStart) {
+      onUploadStart();
+    }
+    
     setIsLoading(true);
     setError(null);
     setDetailedError(null);
@@ -219,6 +243,8 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
         throw new Error('Por favor, selecciona al menos un archivo de libro diario');
       }
       
+      console.log('Basic validation passed');
+      
       // Preparar FormData para la subida
       const uploadFormData = new FormData();
       uploadFormData.append('project', formData.project);
@@ -226,30 +252,53 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
       uploadFormData.append('start_date', formData.startDate);
       uploadFormData.append('end_date', formData.endDate);
       
+      console.log('Adding files to FormData...');
+      
       // Agregar archivos de libro diario
+      let libroFilesAdded = 0;
       formData.libroFiles.forEach((fileObj, index) => {
         if (fileObj.file) {
           uploadFormData.append(`libro_diario_files`, fileObj.file);
+          libroFilesAdded++;
+          console.log(`Added libro file ${index + 1}: ${fileObj.file.name}`);
         } else {
           console.warn(`File object at index ${index} doesn't have a file property`);
         }
       });
       
+      console.log(`Total libro files added: ${libroFilesAdded}`);
+      
       // Agregar archivos de sumas y saldos si existen
+      let sumasFilesAdded = 0;
       if (formData.sumasFiles.length > 0) {
         formData.sumasFiles.forEach((fileObj, index) => {
           if (fileObj.file) {
             uploadFormData.append('sumas_saldos_files', fileObj.file);
+            sumasFilesAdded++;
+            console.log(`Added sumas file ${index + 1}: ${fileObj.file.name}`);
           } else {
             console.warn(`Sumas File object at index ${index} doesn't have a file property`);
           }
         });
       }
       
-      // Debug output to verify FormData contents
-      for (let pair of uploadFormData.entries()) {
-        console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
+      console.log(`Total sumas files added: ${sumasFilesAdded}`);
+      
+      if (libroFilesAdded === 0) {
+        throw new Error('No se pudieron procesar los archivos de libro diario');
       }
+      
+      // Debug output to verify FormData contents
+      console.log('FormData contents:');
+      for (let pair of uploadFormData.entries()) {
+        if (pair[1] instanceof File) {
+          console.log(`${pair[0]}: File - ${pair[1].name} (${pair[1].size} bytes)`);
+        } else {
+          console.log(`${pair[0]}: ${pair[1]}`);
+        }
+      }
+      
+      console.log('Sending upload request...');
       
       // Enviar datos al servidor
       const response = await uploadFiles(uploadFormData);
@@ -257,35 +306,47 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
       
       // Notificar éxito
       if (response && response.temp_dir) {
+        console.log('Upload successful, calling onUploadSuccess...');
         onUploadSuccess(response);
       } else {
         throw new Error("Respuesta incompleta del servidor");
       }
+      
     } catch (err) {
-      // Mostrar error detallado
       console.error("Error completo al subir:", err);
       
-      // Mostrar mensaje de error simplificado
-      setError("Error al subir archivos");
+      // Notificar al componente padre que hubo un error
+      if (onUploadError) {
+        onUploadError();
+      }
       
-      // Guardar error detallado
-      setDetailedError(err.message || "Error desconocido en la subida de archivos");
+      // Manejar diferentes tipos de errores
+      if (err instanceof APIError) {
+        setError(`Error del servidor (${err.status})`);
+        setDetailedError(err.message);
+      } else if (err.message) {
+        setError("Error en la validación");
+        setDetailedError(err.message);
+      } else {
+        setError("Error desconocido");
+        setDetailedError("Se produjo un error inesperado durante la carga de archivos");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
+return (
     <div className="space-y-8">
       {/* Formulario de importación - Diseño original */}
       <div className="bg-white rounded-lg shadow-md p-8">
-        <h3 className="text-xl font-medium text-gray-800 mb-6">Selecciona los datos a importar</h3>
+        <h3 className="text-m font-medium text-gray-800 mb-6">Selecciona los datos a importar</h3>
         
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
+          <div className="space-y-2">
             {/* Project and Year in the same row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-12 gap-4 mb-6">
+              <div className="col-span-8">
                 <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-2">Proyecto</label>
                 <select
                   id="project"
@@ -293,6 +354,7 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
                   className="w-full rounded-md border border-gray-300 p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
                   value={formData.project}
                   onChange={handleInputChange}
+                  disabled={loading}
                 >
                   <option value="">Seleccionar proyecto</option>
                   {projectOptions.map(project => (
@@ -302,8 +364,7 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
                   ))}
                 </select>
               </div>
-              
-              <div>
+              <div className="col-span-1">
                 <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-2">Ejercicio</label>
                 <select
                   id="year"
@@ -311,134 +372,135 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
                   className="w-full rounded-md border border-gray-300 p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
                   value={formData.year}
                   onChange={handleInputChange}
-                  disabled // Disabled as it's auto-set based on project
+                  disabled={loading}
                 >
                   <option value="2024">2024</option>
                   <option value="2023">2023</option>
                 </select>
               </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Periodo</label>
-              <div className="flex gap-4">
-                <input 
-                  type="date"
-                  name="startDate"
-                  className="flex-1 rounded-md border border-gray-300 p-2"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                />
-                <span className="flex items-center">a</span>
-                <input 
-                  type="date"
-                  name="endDate"
-                  className="flex-1 rounded-md border border-gray-300 p-2"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                />
+              <div className="col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Periodo</label>
+                <div className="flex gap-4">
+                  <input 
+                    type="date"
+                    name="startDate"
+                    className="flex-1 rounded-md border border-gray-300 p-2"
+                    value={formData.startDate}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                  />
+                  <span className="flex items-center">a</span>
+                  <input 
+                    type="date"
+                    name="endDate"
+                    className="flex-1 rounded-md border border-gray-300 p-2"
+                    value={formData.endDate}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                  />
+                </div>
               </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Libro diario</label>
-              <div className="border border-dashed border-gray-300 rounded-md p-3 bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 text-purple-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Libro diario</label>
+                <div className="border border-dashed border-gray-300 rounded-md p-3 bg-white/90">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 text-purple-700">
+                        <Upload size={20} />
+                      </div>
+                      <div className="flex-grow">
+                        {formData.libroFiles.length === 0 ? (
+                          <p className="text-sm text-gray-600">Selecciona archivos CSV, TXT, XLSX, XLS</p>
+                        ) : (
+                          <div className="space-y-1 max-h-28 overflow-y-auto pr-2">
+                            {formData.libroFiles.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200 text-sm">
+                                <div className="flex items-center">
+                                  {getFileIcon(file.name)}
+                                  <span className="truncate max-w-xs">{file.name}</span>
+                                  <span className="text-gray-500 ml-2">({file.size})</span>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => removeFile(index, 'libro')}
+                                  className="text-gray-400 hover:text-red-500"
+                                  disabled={loading}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-grow">
-                      <p className="text-sm text-gray-600">Selecciona archivos CSV, TXT, XLSX, XLS</p>
-                    </div>
+
+                    <label className={`cursor-pointer bg-purple-700 text-white px-2 py-1.5 rounded-md hover:bg-purple-800 transition text-xs ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      Archivo
+                      <input 
+                        type="file" 
+                        multiple
+                        accept=".csv,.txt,.xlsx,.xls"
+                        className="hidden" 
+                        onChange={(e) => handleFileSelection(e, 'libro')}
+                        disabled={loading}
+                      />
+                    </label>
                   </div>
-                  <label className="cursor-pointer bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition text-sm">
-                    Archivo
-                    <input 
-                      type="file" 
-                      multiple
-                      accept=".csv,.txt,.xlsx,.xls"
-                      className="hidden" 
-                      onChange={(e) => handleFileSelection(e, 'libro')}
-                    />
-                  </label>
                 </div>
               </div>
               
-              {formData.libroFiles.length > 0 && (
-                <div className="mt-2">
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {formData.libroFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200 text-sm">
-                        <div className="flex items-center">
-                          {getFileIcon(file.name)}
-                          <span className="truncate max-w-xs">{file.name}</span>
-                          <span className="text-gray-500 ml-2">({file.size})</span>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => removeFile(index, 'libro')}
-                          className="text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div>
+              <div className="col-span-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Sumas y saldos</label>
-              <div className="border border-dashed border-gray-300 rounded-md p-3 bg-gray-50">
+              <div className="border border-dashed border-gray-300 rounded-md p-3 bg-white/90">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0 text-purple-700">
                       <Upload size={20} />
                     </div>
                     <div className="flex-grow">
-                      <p className="text-sm text-gray-600">Selecciona archivos CSV, TXT, XLSX, XLS</p>
+                      {formData.sumasFiles.length === 0 ? (
+                        <p className="text-sm text-gray-600">Selecciona archivos CSV, TXT, XLSX, XLS</p>
+                      ) : (
+                        <div className="space-y-1 max-h-28 overflow-y-auto pr-2">
+                          {formData.sumasFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200 text-sm">
+                              <div className="flex items-center">
+                                {getFileIcon(file.name)}
+                                <span className="truncate max-w-xs">{file.name}</span>
+                                <span className="text-gray-500 ml-2">({file.size})</span>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => removeFile(index, 'sumas')}
+                                className="text-gray-400 hover:text-red-500"
+                                disabled={loading}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <label className="cursor-pointer bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition text-sm">
+
+                  <label className={`cursor-pointer bg-purple-700 text-white px-2 py-1.5 rounded-md hover:bg-purple-800 transition text-xs ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     Archivo
                     <input 
                       type="file"
                       accept=".csv,.txt,.xlsx,.xls"
                       className="hidden"
                       onChange={(e) => handleFileSelection(e, 'sumas')}
+                      disabled={loading}
                     />
                   </label>
                 </div>
               </div>
-              
-              {formData.sumasFiles.length > 0 && (
-                <div className="mt-2">
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {formData.sumasFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200 text-sm">
-                        <div className="flex items-center">
-                          {getFileIcon(file.name)}
-                          <span className="truncate max-w-xs">{file.name}</span>
-                          <span className="text-gray-500 ml-2">({file.size})</span>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => removeFile(index, 'sumas')}
-                          className="text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            </div>
             </div>
             
             {error && (
@@ -459,12 +521,12 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
           <div className="mt-8 flex justify-end">
             <button 
               type="submit"
-              disabled={isLoading}
-              className="bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+              className="bg-purple-700 text-white px-2 py-2 rounded-md hover:bg-purple-800 transition flex items-center text-sm gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {loading ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-2 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -473,7 +535,7 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
               ) : (
                 <>
                   Siguiente
-                  <ArrowRight size={16} />
+                  <ArrowRight size={12} />
                 </>
               )}
             </button>
@@ -481,8 +543,8 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
         </form>
       </div>
 
-      {/* Historial de importaciones - Movido abajo y más pequeño */}
-      {showHistory && (
+      {/* Historial de importaciones */}
+      {showHistory && !loading && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-medium text-gray-800">Historial de importaciones recientes</h4>
@@ -556,7 +618,7 @@ const ImportacionStep1 = ({ formData, onFormChange, onUploadSuccess, onNext }) =
       )}
 
       {/* Botón para mostrar historial si está oculto */}
-      {!showHistory && (
+      {!showHistory && !loading && (
         <div className="text-center">
           <button
             onClick={() => setShowHistory(true)}

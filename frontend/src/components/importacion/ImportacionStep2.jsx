@@ -1,7 +1,7 @@
 // frontend/src/components/importacion/ImportacionStep2.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Check, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Eye, Loader, CheckCircle2, AlertCircle } from 'lucide-react';
-import { validateFiles } from '../../services/api';
+import { Check, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Eye, Loader, CheckCircle2, AlertCircle, X, AlertTriangle } from 'lucide-react';
+import { validateFilesWithStreaming } from '../../services/api';
 
 // Preview Modal Component
 const FilePreviewModal = ({ isOpen, onClose, entries, sumasSaldosData }) => {
@@ -44,9 +44,7 @@ const FilePreviewModal = ({ isOpen, onClose, entries, sumasSaldosData }) => {
           </div>
           
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="h-6 w-6" />
           </button>
         </div>
         
@@ -177,12 +175,108 @@ const FilePreviewModal = ({ isOpen, onClose, entries, sumasSaldosData }) => {
               : 'Sin datos'
             }
           </div>
-          <button 
-            onClick={onClose} 
-            className="px-6 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors"
-          >
-            Cerrar
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Validation Details Modal Component
+const ValidationDetailsModal = ({ isOpen, onClose, fileValidation }) => {
+  const [expandedSection, setExpandedSection] = useState(null);
+
+  const toggleSection = (sectionId) => {
+    setExpandedSection(expandedSection === sectionId ? null : sectionId);
+  };
+
+  if (!isOpen || !fileValidation) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+        <div className="p-4 border-b flex justify-between items-center">
+          <div>
+            <h3 className="font-semibold text-lg">Detalles de validación</h3>
+            <p className="text-sm text-gray-600 mt-1">{fileValidation.file_name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X className="h-6 w-6" />
           </button>
+        </div>
+        
+        <div className="overflow-auto flex-1 p-6">
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validación</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {fileValidation.checks.map((check, index) => (
+                  <React.Fragment key={index}>
+                    <tr className={`${expandedSection === index ? 'bg-gray-50' : ''} transition-colors`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {check.passed ? (
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                              <Check className="text-green-500" size={20} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
+                              <X className="text-red-500" size={20} />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className={`font-semibold ${check.passed ? 'text-green-700' : 'text-red-700'}`}>
+                            {check.name}
+                          </span>
+                          {!check.passed && check.message && (
+                            <span className="text-xs text-red-500 mt-1 truncate max-w-xs">
+                              {check.message.split(';')[0]}...
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => toggleSection(index)}
+                          className="text-purple-700 hover:text-purple-900 flex items-center transition-colors"
+                        >
+                          Ver detalles
+                          {expandedSection === index ? (
+                            <ChevronUp size={16} className="ml-1" />
+                          ) : (
+                            <ChevronDown size={16} className="ml-1" />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedSection === index && (
+                      <tr>
+                        <td colSpan="3" className="px-0 py-0">
+                          {check.passed ? (
+                            <SuccessDetailsComponent check={check} />
+                          ) : (
+                            <ErrorDetailsComponent check={check} />
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="p-4 border-t bg-gray-50 flex justify-end">
         </div>
       </div>
     </div>
@@ -344,62 +438,161 @@ const SuccessDetailsComponent = ({ check }) => {
   );
 };
 
+// Loading Steps Component (for the real loading process)
+const LoadingStepsComponent = ({ loadingSteps, currentMessage }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-8">
+      <div className="flex flex-col justify-center items-center">
+        <div className="w-full max-w-md">
+          <h3 className="text-xl font-semibold text-gray-800 mb-2 text-center">Validando archivos</h3>
+          <p className="text-sm text-gray-600 mb-6 text-center">{currentMessage}</p>
+          
+          <div className="space-y-4">
+            {loadingSteps.steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div className="flex-shrink-0 mr-4">
+                  {step.done ? (
+                    <CheckCircle2 className="text-green-500" size={22} />
+                  ) : (
+                    step.active ? (
+                      <div className="animate-spin h-5 w-5">
+                        <Loader className="text-purple-700" size={22} />
+                      </div>
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-gray-300"></div>
+                    )
+                  )}
+                </div>
+                <div className="flex-grow">
+                  <p className={`text-sm font-medium ${
+                    step.done 
+                      ? 'text-green-600' 
+                      : step.active
+                      ? 'text-purple-700' 
+                      : 'text-gray-500'
+                  }`}>
+                    {step.label}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-8 relative">
+            <div className="overflow-hidden h-2 text-xs flex rounded-lg bg-gray-200">
+              <div 
+                className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-purple-600 to-purple-700 transition-all duration-1000"
+                style={{ width: `${loadingSteps.progress}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              {loadingSteps.progress}% completado
+            </p>
+          </div>
+          
+          {/* Indicador adicional de actividad - solo mientras está cargando */}
+          {loadingSteps.loading && (
+            <div className="mt-6 flex justify-center">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Validation Step Component
-const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSaldosData, onValidationComplete, onNext, onPrev, isLoadingPreview }) => {
+const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSaldosData, onValidationComplete, onNext, onPrev, isLoadingPreview, hasTriggeredValidation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [validation, setValidation] = useState(validationData);
-  const [expandedSection, setExpandedSection] = useState(null);
+  const [isValidating, setIsValidating] = useState(false); // Nueva bandera para prevenir doble ejecución
+  const [currentMessage, setCurrentMessage] = useState('Preparando validación...');
   const [loadingSteps, setLoadingSteps] = useState({
-    loading: false,
+    loading: true, // Empezar en loading para mostrar "Preparando validación"
+    progress: 0,
     steps: [
-      { id: 'load', label: 'Cargando archivos', done: false },
-      { id: 'fields', label: 'Validando campos mínimos', done: false },
-      { id: 'dates', label: 'Validando fechas', done: false },
-      { id: 'balance', label: 'Validando balance de asientos', done: false },
-      { id: 'accounts', label: 'Validando cuentas', done: false },
-      { id: 'sumas', label: 'Validando sumas y saldos', done: false }
+      { id: 'preparing', label: 'Preparando validación', done: false, active: true }, // Paso inicial activo
+      { id: 'loading_files', label: 'Cargando archivos', done: false, active: false },
+      { id: 'analyzing_structure', label: 'Analizando estructura', done: false, active: false },
+      { id: 'validating_fields', label: 'Validando campos mínimos', done: false, active: false },
+      { id: 'validating_dates', label: 'Validando fechas', done: false, active: false },
+      { id: 'validating_balance', label: 'Validando balance de asientos', done: false, active: false },
+      { id: 'validating_accounts', label: 'Validando cuentas', done: false, active: false }
     ]
   });
   const [showPreview, setShowPreview] = useState(false);
+  const [showValidationDetails, setShowValidationDetails] = useState(false);
+  const [selectedFileValidation, setSelectedFileValidation] = useState(null);
 
-  // Simulate loading steps
-  const simulateLoadingSteps = useCallback(() => {
+  // Handle streaming progress updates
+  const handleProgressUpdate = useCallback((progressData) => {
+    console.log('Progress update received:', progressData);
+    
+    setCurrentMessage(progressData.message || 'Procesando...');
+    
     setLoadingSteps(prev => ({
       ...prev,
-      loading: true,
-      steps: prev.steps.map(step => ({ ...step, done: false }))
+      progress: progressData.progress || 0,
+      steps: prev.steps.map(step => {
+        // Marcar el paso de preparación como completado cuando empiece loading_files
+        if (step.id === 'preparing' && progressData.step === 'loading_files') {
+          return { ...step, active: false, done: true };
+        }
+        // Actualizar el paso actual
+        if (step.id === progressData.step) {
+          return { ...step, active: !progressData.completed, done: progressData.completed };
+        }
+        return step;
+      })
     }));
-
-    let stepCounter = 0;
-    const interval = setInterval(() => {
-      if (stepCounter < loadingSteps.steps.length) {
-        setLoadingSteps(prev => ({
-          ...prev,
-          steps: prev.steps.map((step, idx) => ({
-            ...step,
-            done: idx <= stepCounter
-          }))
-        }));
-        stepCounter++;
-      } else {
-        clearInterval(interval);
-        setLoadingSteps(prev => ({
-          ...prev,
-          loading: false,
-          steps: prev.steps.map(step => ({ ...step, done: true }))
-        }));
-      }
-    }, 800); // Each step takes 0.8 seconds
-
-    return () => clearInterval(interval);
-  }, [loadingSteps.steps.length]);
+    
+    // If completed, we'll receive the final result
+    if (progressData.step === 'completed' && progressData.result) {
+      console.log('Validation completed with result:', progressData.result);
+      setLoadingSteps(prev => ({
+        ...prev,
+        loading: false,
+        progress: 100,
+        steps: prev.steps.map(step => ({ ...step, done: true, active: false }))
+      }));
+      
+      // Small delay to show completion
+      setTimeout(() => {
+        setValidation(progressData.result);
+        onValidationComplete(progressData.result);
+      }, 500);
+    }
+  }, [onValidationComplete]);
 
   const handleValidate = useCallback(async () => {
+    // Prevenir múltiples ejecuciones
+    if (isValidating) {
+      console.log("Validation already in progress, skipping...");
+      return;
+    }
+    
+    console.log("Starting real-time streaming validation...");
+    setIsValidating(true);
     setIsLoading(true);
     setError(null);
     
-    simulateLoadingSteps();
+    // Initialize loading state with "Preparando validación" active
+    setLoadingSteps(prev => ({
+      ...prev,
+      loading: true,
+      progress: 0,
+      steps: prev.steps.map((step, index) => ({
+        ...step, 
+        done: false, 
+        active: index === 0 // Solo el primer paso (Preparando validación) activo
+      }))
+    }));
     
     try {
       const validationFormData = new FormData();
@@ -409,95 +602,194 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
       validationFormData.append('start_date', formData.startDate);
       validationFormData.append('end_date', formData.endDate);
       
-      const result = await validateFiles(validationFormData);
-      console.log("Validation result:", result);
-      setValidation(result);
-      onValidationComplete(result);
+      console.log("Starting streaming validation...");
+      
+      // Use streaming validation
+      await validateFilesWithStreaming(validationFormData, handleProgressUpdate);
+      
     } catch (err) {
-      console.error("Validation error:", err);
+      console.error("Streaming validation error:", err);
+      setLoadingSteps(prev => ({
+        ...prev,
+        loading: false,
+        steps: prev.steps.map(step => ({ ...step, active: false }))
+      }));
       setError(err.message || 'Error en la validación');
     } finally {
       setIsLoading(false);
+      setIsValidating(false);
     }
-  }, [tempDir, formData, onValidationComplete, simulateLoadingSteps]);
+  }, [tempDir, formData, handleProgressUpdate, isValidating]);
 
   useEffect(() => {
-    if (!validationData && tempDir) {
+    // Solo ejecutar validación UNA VEZ si:
+    // 1. No se ha ejecutado antes (hasTriggeredValidation es false)
+    // 2. No hay datos de validación existentes
+    // 3. Hay un directorio temporal válido
+    // 4. No está ya en proceso de validación
+    if (!hasTriggeredValidation && !validationData && tempDir && !isValidating && !isLoading) {
+      console.log("Triggering real-time validation for the first time");
       handleValidate();
-    } else {
+    } else if (validationData) {
+      console.log("Using existing validation data");
       setValidation(validationData);
+      // Asegurar que no está en estado de carga
+      setLoadingSteps(prev => ({ 
+        ...prev, 
+        loading: false,
+        steps: prev.steps.map(step => ({ ...step, done: true, active: false }))
+      }));
     }
-  }, [validationData, tempDir, handleValidate]);
+  }, [tempDir, hasTriggeredValidation, validationData, isValidating, isLoading, handleValidate]);
 
-  const toggleSection = (sectionId) => {
-    setExpandedSection(expandedSection === sectionId ? null : sectionId);
-  };
+  // Estado para rastrear los últimos parámetros procesados
+  const [lastProcessedParams, setLastProcessedParams] = useState({
+    tempDir: '',
+    project: '',
+    year: '',
+    startDate: '',
+    endDate: '',
+    libroFilesCount: 0,
+    sumasFilesCount: 0
+  });
 
-  const getAllValidationChecks = () => {
+  // Función para crear hash de parámetros actuales
+  const getCurrentParams = useCallback(() => {
+    return {
+      tempDir: tempDir || '',
+      project: formData.project || '',
+      year: formData.year || '',
+      startDate: formData.startDate || '',
+      endDate: formData.endDate || '',
+      libroFilesCount: formData.libroFiles?.length || 0,
+      sumasFilesCount: formData.sumasFiles?.length || 0
+    };
+  }, [tempDir, formData]);
+
+  // Función para comparar si los parámetros han cambiado
+  const paramsHaveChanged = useCallback((current, last) => {
+    return JSON.stringify(current) !== JSON.stringify(last);
+  }, []);
+
+  // useEffect para detectar cambios en CUALQUIER parámetro y resetear estado
+  useEffect(() => {
+    const currentParams = getCurrentParams();
+    
+    // Si hay parámetros válidos y han cambiado respecto a los últimos procesados
+    if (tempDir && formData.project && paramsHaveChanged(currentParams, lastProcessedParams)) {
+      console.log("Parameters changed, resetting validation state:", {
+        previous: lastProcessedParams,
+        current: currentParams
+      });
+      
+      // Resetear todo el estado de validación
+      setValidation(null);
+      setError(null);
+      setIsValidating(false);
+      setCurrentMessage('Preparando validación...');
+      setLoadingSteps({
+        loading: true,
+        progress: 0,
+        steps: [
+          { id: 'preparing', label: 'Preparando validación', done: false, active: true },
+          { id: 'loading_files', label: 'Cargando archivos', done: false, active: false },
+          { id: 'analyzing_structure', label: 'Analizando estructura', done: false, active: false },
+          { id: 'validating_fields', label: 'Validando campos mínimos', done: false, active: false },
+          { id: 'validating_dates', label: 'Validando fechas', done: false, active: false },
+          { id: 'validating_balance', label: 'Validando balance de asientos', done: false, active: false },
+          { id: 'validating_accounts', label: 'Validando cuentas', done: false, active: false }
+        ]
+      });
+      
+      // Actualizar los últimos parámetros procesados
+      setLastProcessedParams(currentParams);
+    }
+  }, [tempDir, formData, getCurrentParams, paramsHaveChanged, lastProcessedParams]);
+
+  // Function to get file summaries for the main table - MODIFIED to show individual files
+  const getFileSummaries = () => {
     if (!validation) return [];
     
-    const libroChecks = validation.libro_diario_validation?.checks || [];
-    const sumasChecks = validation.sumas_saldos_validation?.checks || [];
+    const summaries = [];
     
-    return [
-      ...libroChecks.map(check => ({ ...check, source: 'Libro Diario' })),
-      ...sumasChecks.map(check => ({ ...check, source: 'Sumas y Saldos' }))
-    ];
+    // Add individual Libro Diario file validations
+    if (validation.libro_diario_validation) {
+      const libroValidation = validation.libro_diario_validation;
+      
+      // Split the file names if there are multiple files
+      const fileNames = libroValidation.file_name.split(', ');
+      
+      fileNames.forEach(fileName => {
+        const errorCount = libroValidation.checks.filter(check => !check.passed).length;
+        const warningCount = 0; // You can implement warnings logic later
+        
+        let status = 'success';
+        if (errorCount > 0) status = 'error';
+        else if (warningCount > 0) status = 'warning';
+        
+        summaries.push({
+          fileName: fileName.trim(),
+          origen: 'Libro Diario',
+          status: status,
+          errorCount: errorCount,
+          warningCount: warningCount,
+          totalChecks: libroValidation.checks.length,
+          validation: libroValidation
+        });
+      });
+    }
+    
+    // Add individual Sumas y Saldos file validations
+    if (validation.sumas_saldos_validation) {
+      const sumasValidation = validation.sumas_saldos_validation;
+      
+      // Split the file names if there are multiple files
+      const fileNames = sumasValidation.file_name.split(', ');
+      
+      fileNames.forEach(fileName => {
+        const errorCount = sumasValidation.checks.filter(check => !check.passed).length;
+        const warningCount = 0; // You can implement warnings logic later
+        
+        let status = 'success';
+        if (errorCount > 0) status = 'error';
+        else if (warningCount > 0) status = 'warning';
+        
+        summaries.push({
+          fileName: fileName.trim(),
+          origen: 'Sumas y Saldos',
+          status: status,
+          errorCount: errorCount,
+          warningCount: warningCount,
+          totalChecks: sumasValidation.checks.length,
+          validation: sumasValidation
+        });
+      });
+    }
+    
+    return summaries;
   };
 
-  if (loadingSteps.loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-8">
-        <div className="flex flex-col justify-center items-center">
-          <div className="w-full max-w-md">
-            <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">Validando archivos</h3>
-            
-            <div className="space-y-4">
-              {loadingSteps.steps.map((step, index) => (
-                <div key={step.id} className="flex items-center">
-                  <div className="flex-shrink-0 mr-4">
-                    {step.done ? (
-                      <CheckCircle2 className="text-green-500" size={22} />
-                    ) : (
-                      index === loadingSteps.steps.findIndex(s => !s.done) ? (
-                        <div className="animate-spin h-5 w-5">
-                          <Loader className="text-purple-700" size={22} />
-                        </div>
-                      ) : (
-                        <div className="h-5 w-5 rounded-full border-2 border-gray-300"></div>
-                      )
-                    )}
-                  </div>
-                  <div className="flex-grow">
-                    <p className={`text-sm font-medium ${
-                      step.done 
-                        ? 'text-green-600' 
-                        : index === loadingSteps.steps.findIndex(s => !s.done) 
-                        ? 'text-purple-700' 
-                        : 'text-gray-500'
-                    }`}>
-                      {step.label}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-8 relative">
-              <div className="overflow-hidden h-2 text-xs flex rounded-lg bg-gray-200">
-                <div 
-                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-purple-600 to-purple-700 transition-all duration-500"
-                  style={{ width: `${(loadingSteps.steps.filter(s => s.done).length / loadingSteps.steps.length) * 100}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                {Math.round((loadingSteps.steps.filter(s => s.done).length / loadingSteps.steps.length) * 100)}% completado
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'success':
+        return <Check className="text-green-500" size={20} />;
+      case 'warning':
+        return <AlertTriangle className="text-yellow-500" size={20} />;
+      case 'error':
+        return <X className="text-red-500" size={20} />;
+      default:
+        return <Check className="text-gray-400" size={20} />;
+    }
+  };
+
+  const openValidationDetails = (fileValidation) => {
+    setSelectedFileValidation(fileValidation);
+    setShowValidationDetails(true);
+  };
+
+  // Show loading steps when validation is in progress OR when we don't have validation data yet
+  if (loadingSteps.loading || (!validation && !error && tempDir)) {
+    return <LoadingStepsComponent loadingSteps={loadingSteps} currentMessage={currentMessage} />;
   }
 
   if (error) {
@@ -553,7 +845,7 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
     return null;
   }
 
-  const allChecks = getAllValidationChecks();
+  const fileSummaries = getFileSummaries();
   const hasErrors = validation.has_errors;
 
   return (
@@ -561,86 +853,69 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
       <h3 className="text-2xl font-semibold text-gray-800 mb-6">Validación de archivos</h3>
       
       <div className="space-y-6">
-        {/* Combined validation table */}
+        {/* Main validation summary table - MODIFIED to show individual files */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validación</th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fichero</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                <th scope="col" className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Validaciones</th>
+                <th scope="col" className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {allChecks.map((check, index) => (
-                <React.Fragment key={index}>
-                  <tr className={`${expandedSection === index ? 'bg-gray-50' : ''} transition-colors`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {check.passed ? (
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                            <Check className="text-green-500" size={20} />
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="18" y1="6" x2="6" y2="18"></line>
-                              <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className={`font-semibold ${check.passed ? 'text-green-700' : 'text-red-700'}`}>
-                          {check.name}
+              {fileSummaries.map((summary, index) => (
+                <tr key={index} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className={`w-2 h-2 rounded-full mr-3 ${
+                        summary.status === 'success' ? 'bg-green-500' :
+                        summary.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}></div>
+                      {getStatusIcon(summary.status)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900">{summary.fileName}</span>
+                      {summary.errorCount > 0 && (
+                        <span className="text-xs text-red-500 mt-1">
+                          {summary.errorCount} error{summary.errorCount > 1 ? 'es' : ''} encontrado{summary.errorCount > 1 ? 's' : ''}
                         </span>
-                        {!check.passed && check.message && (
-                          <span className="text-xs text-red-500 mt-1 truncate max-w-xs">
-                            {check.message.split(';')[0]}...
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        check.source === 'Libro Diario' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {check.source}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => toggleSection(index)}
-                        className="text-purple-700 hover:text-purple-900 flex items-center transition-colors"
-                      >
-                        Ver detalles
-                        {expandedSection === index ? (
-                          <ChevronUp size={16} className="ml-1" />
-                        ) : (
-                          <ChevronDown size={16} className="ml-1" />
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedSection === index && (
-                    <tr>
-                      <td colSpan="4" className="px-0 py-0">
-                        {check.passed ? (
-                          <SuccessDetailsComponent check={check} />
-                        ) : (
-                          <ErrorDetailsComponent check={check} />
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
+                      )}
+                      {summary.warningCount > 0 && (
+                        <span className="text-xs text-yellow-600 mt-1">
+                          {summary.warningCount} advertencia{summary.warningCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      summary.origen === 'Libro Diario' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {summary.origen}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-sm text-gray-600">
+                      {summary.totalChecks - summary.errorCount}/{summary.totalChecks} válidas
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      onClick={() => openValidationDetails(summary.validation)}
+                      className="text-purple-700 hover:text-purple-900 flex items-center justify-center mx-auto transition-colors"
+                      title="Ver detalles de validación"
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -666,7 +941,7 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
             </div>
             <button
               onClick={() => setShowPreview(true)}
-              className="bg-purple-700 text-white px-4 py-2 rounded-lg hover:bg-purple-800 transition flex items-center gap-2"
+              className="bg-purple-700 text-white px-4 py-2 rounded-lg hover:bg-purple-800 transition flex items-center text-sm gap-2"
               disabled={isLoadingPreview}
             >
               {isLoadingPreview ? (
@@ -676,7 +951,7 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
                 </>
               ) : (
                 <>
-                  <Eye size={16} />
+                  <Eye size={12} />
                   Previsualizar
                 </>
               )}
@@ -696,7 +971,7 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
                 <div className="bg-amber-100 border border-amber-200 rounded p-3">
                   <p className="text-xs text-amber-700 font-medium mb-1">Opciones disponibles:</p>
                   <ul className="text-xs text-amber-600 list-disc list-inside space-y-1">
-                    <li>Revisar los detalles de cada error expandiendo las secciones de validación</li>
+                    <li>Hacer clic en el ícono del ojo para ver los detalles de cada archivo</li>
                     <li>Corregir los archivos y volver al paso anterior para subirlos nuevamente</li>
                     <li>Contactar al administrador si persisten los problemas</li>
                   </ul>
@@ -710,15 +985,15 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
       <div className="mt-8 flex justify-between">
         <button 
           onClick={onPrev}
-          className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
+          className="border border-gray-300 text-gray-700 px-2 py-2 rounded-lg hover:bg-gray-50 transition flex items-center text-sm gap-2"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={12} />
           Anterior
         </button>
         <button 
           onClick={onNext}
           disabled={hasErrors || isLoading}
-          className={`px-6 py-3 rounded-lg transition flex items-center gap-2 ${
+          className={`bg-purple-700 text-white px-2 py-2 rounded-md hover:bg-purple-800 transition flex items-center text-sm gap-2 ${
             (hasErrors || isLoading) 
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
               : 'bg-purple-700 text-white hover:bg-purple-800'
@@ -726,23 +1001,30 @@ const ImportacionStep2 = ({ tempDir, formData, validationData, entries, sumasSal
         >
           {isLoading ? (
             <>
-              <Loader className="animate-spin" size={16} />
+              <Loader className="animate-spin -ml-2 mr-2 h-4 w-4 text-white" size={12} />
               Procesando...
             </>
           ) : (
             <>
               Siguiente
-              <ArrowRight size={16} />
+              <ArrowRight size={12} />
             </>
           )}
         </button>
       </div>
 
+      {/* Modals */}
       <FilePreviewModal 
         isOpen={showPreview} 
         onClose={() => setShowPreview(false)} 
         entries={entries || []} 
         sumasSaldosData={sumasSaldosData || []}
+      />
+
+      <ValidationDetailsModal
+        isOpen={showValidationDetails}
+        onClose={() => setShowValidationDetails(false)}
+        fileValidation={selectedFileValidation}
       />
     </div>
   );

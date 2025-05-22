@@ -51,12 +51,11 @@ const HomePage = () => {
 
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Aplicaciones</h2>
-        <p className="text-gray-600">Selecciona una aplicación para comenzar el análisis contable</p>
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Aplicaciones</h1>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid md:grid-cols-4 gap-4">
         {applications.map((app) => (
           <div
             key={app.id}
@@ -67,17 +66,17 @@ const HomePage = () => {
             <div className={`absolute inset-0 bg-gradient-to-br ${app.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
             
             {/* Content */}
-            <div className="relative p-8">
+            <div className="relative p-4">
               {/* Icon with gradient background */}
-              <div className={`bg-gradient-to-br ${app.color} rounded-2xl w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+              <div className={`bg-gradient-to-br ${app.color} rounded-2xl w-14 h-14 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                 {app.icon}
               </div>
               
               {/* Title and Description */}
-              <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-purple-700 transition-colors duration-300">
+              <h3 className="text-2m font-bold text-gray-800 mb-3 group-hover:text-purple-700 transition-colors duration-300">
                 {app.title}
               </h3>
-              <p className="text-gray-600 mb-6 leading-relaxed">
+              <p className="text-xs text-gray-600 mb-6 leading-relaxed">
                 {app.description}
               </p>
               
