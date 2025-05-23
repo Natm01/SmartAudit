@@ -1,5 +1,6 @@
 // frontend/src/pages/AnalisisObsolescenciaPage.jsx
 import React, { useState, useEffect } from 'react';
+import { Check, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Eye, Loader, CheckCircle2, AlertCircle, X, AlertTriangle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AnalisisObsolescenciaStep1 from '../components/analisis-obsolescencia/AnalisisObsolescenciaStep1';
 import AnalisisObsolescenciaStep2 from '../components/analisis-obsolescencia/AnalisisObsolescenciaStep2';
@@ -264,10 +265,12 @@ const AnalisisObsolescenciaPage = () => {
                   <div key={step.id} className="flex items-center">
                     <div className="flex-shrink-0 mr-4">
                       {step.done ? (
-                        <div className="text-green-500">✓</div>
+                        <CheckCircle2 className="text-green-500" size={22} />
                       ) : (
                         index === loadingSteps.steps.findIndex(s => !s.done) ? (
-                          <div className="animate-spin h-5 w-5">⟳</div>
+                          <div className="animate-spin h-5 w-5">
+                            <Loader className="text-purple-700" size={22} />
+                          </div>
                         ) : (
                           <div className="h-5 w-5 rounded-full border-2 border-gray-300"></div>
                         )

@@ -83,73 +83,84 @@ const AnalisisObsolescenciaStep1 = ({ formData, onInputChange, isLoading, onNext
     <div className="bg-white rounded-lg shadow-md p-8">
       <h3 className="text-xl font-medium text-gray-800 mb-6">Selecciona los datos a importar</h3>
       
-      <div className="space-y-4">
-        {/* Project selection */}
-        <div>
-          <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-2">Proyecto</label>
-          <select
-            id="project"
-            name="project"
-            className="w-full rounded-md border border-gray-300 p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
-            value={formData.project}
-            onChange={(e) => onInputChange('project', e.target.value)}
-          >
-            <option value="">Seleccionar proyecto</option>
-            {projectOptions.map(project => (
-              <option key={project.id} value={project.id}>
-                {project.id} - {project.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="space-y-6">
 
-        {/* Period selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Periodo</label>
-          <div className="flex gap-4">
-            <input 
-              type="date"
-              name="startDate"
-              className="flex-1 rounded-md border border-gray-300 p-2"
-              value={formData.period.start}
-              onChange={(e) => onInputChange('period.start', e.target.value)}
-            />
-            <span className="flex items-center">a</span>
-            <input 
-              type="date"
-              name="endDate"
-              className="flex-1 rounded-md border border-gray-300 p-2"
-              value={formData.period.end}
-              onChange={(e) => onInputChange('period.end', e.target.value)}
-            />
+        <div className="grid grid-cols-12 gap-4 mb-6">
+          {/* Project selection */}
+          <div className="col-span-6">
+            <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-2">Proyecto</label>
+            <select
+              id="project"
+              name="project"
+              className="w-full rounded-md border border-gray-300 p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+              value={formData.project}
+              onChange={(e) => onInputChange('project', e.target.value)}
+            >
+              <option value="">Seleccionar proyecto</option>
+              {projectOptions.map(project => (
+                <option key={project.id} value={project.id}>
+                  {project.id} - {project.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        {/* Obsolescence criteria */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Meses a los que se considera obsoleto</label>
-          <div className="">
-            <div className="flex gap-4">
+          {/* Year selection */}
+          <div className="col-span-1">
+            <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-2">Ejercicio</label>
+            <select
+              id="year"
+              name="year"
+              className="w-full rounded-md border border-gray-300 p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+              value={formData.year}
+              onChange={(e) => onInputChange('year', e.target.value)}
+            >
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+            </select>
+          </div>
+
+          {/* Period selection */}
+          <div className="col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Período</label>
+            <div className="flex gap-2 items-center">
+              <input 
+                type="date"
+                name="startDate"
+                className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                value={formData.period.start}
+                onChange={(e) => onInputChange('period.start', e.target.value)}
+              />
+              <span className="text-gray-500 text-sm">a</span>
+              <input 
+                type="date"
+                name="endDate"
+                className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                value={formData.period.end}
+                onChange={(e) => onInputChange('period.end', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Obsolescence criteria */}
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Criterios de obsolescencia</label>
+            <div className="flex gap-2 items-center">
               <div className="flex-1">
-                <label htmlFor="obsolescenceValue" className="block text-xs text-gray-600 mb-1">
-                  Valor
-                </label>
                 <input 
                   type="number"
                   id="obsolescenceValue"
                   min="1"
-                  className="w-full rounded-md border border-gray-300 p-2"
+                  placeholder="18"
+                  className="w-full rounded-md border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   value={formData.obsolescence.value}
                   onChange={(e) => onInputChange('obsolescence.value', e.target.value)}
                 />
               </div>
               <div className="flex-1">
-                <label htmlFor="obsolescenceUnit" className="block text-xs text-gray-600 mb-1">
-                  Unidad de tiempo
-                </label>
                 <select
                   id="obsolescenceUnit"
-                  className="w-full rounded-md border border-gray-300 p-2"
+                  className="w-full rounded-md border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   value={formData.obsolescence.unit}
                   onChange={(e) => onInputChange('obsolescence.unit', e.target.value)}
                 >
@@ -161,10 +172,10 @@ const AnalisisObsolescenciaStep1 = ({ formData, onInputChange, isLoading, onNext
                 </select>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-500 mt-1">
               {formData.obsolescence.value && formData.obsolescence.unit ? (
-                <>Se considerará obsoleto todo producto sin movimiento durante {formData.obsolescence.value} {formData.obsolescence.unit}</>
-              ) : 'Introduzca un valor y seleccione una unidad de tiempo'}
+                <>Sin movimiento durante {formData.obsolescence.value} {formData.obsolescence.unit}</>
+              ) : 'Tiempo para considerar obsoleto'}
             </p>
           </div>
         </div>
@@ -173,7 +184,7 @@ const AnalisisObsolescenciaStep1 = ({ formData, onInputChange, isLoading, onNext
         {fileSections.map((section) => (
           <div key={section.key}>
             <label className="block text-sm font-medium text-gray-700 mb-2">{section.label}</label>
-            <div className="border border-dashed border-gray-300 rounded-md p-3 bg-gray-50">
+            <div className="border border-dashed border-gray-300 rounded-md p-3 bg-white/90">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0 text-purple-700">
@@ -184,10 +195,31 @@ const AnalisisObsolescenciaStep1 = ({ formData, onInputChange, isLoading, onNext
                     </svg>
                   </div>
                   <div className="flex-grow">
-                    <p className="text-sm text-gray-600">Selecciona archivos CSV, TXT, XLSX, XLS</p>
+                    {formData.files[section.key]?.length === 0 ? (
+                          <p className="text-sm text-gray-600">Selecciona archivos CSV, TXT, XLSX, XLS</p>
+                        ) : (
+                          <div className="space-y-1 max-h-28 overflow-y-auto pr-2">
+                          {formData.files[section.key].map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200 text-sm">
+                              <div className="flex items-center">
+                                {getFileIcon(file.name)}
+                                <span className="truncate max-w-xs">{file.name}</span>
+                                <span className="text-gray-500 ml-2">({file.size})</span>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => removeFile(section.key, index)}
+                                className="text-gray-400 hover:text-red-500"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                    )}
                   </div>
                 </div>
-                <label className="cursor-pointer bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition text-sm">
+                <label className="cursor-pointer bg-purple-700 text-white px-2 py-1.5 rounded-md hover:bg-purple-800 transition text-xs">
                   Archivo
                   <input 
                     type="file" 
@@ -199,29 +231,6 @@ const AnalisisObsolescenciaStep1 = ({ formData, onInputChange, isLoading, onNext
                 </label>
               </div>
             </div>
-            
-            {formData.files[section.key]?.length > 0 && (
-              <div className="mt-2">
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {formData.files[section.key].map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200 text-sm">
-                      <div className="flex items-center">
-                        {getFileIcon(file.name)}
-                        <span className="truncate max-w-xs">{file.name}</span>
-                        <span className="text-gray-500 ml-2">({file.size})</span>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => removeFile(section.key, index)}
-                        className="text-gray-400 hover:text-red-500"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -230,7 +239,7 @@ const AnalisisObsolescenciaStep1 = ({ formData, onInputChange, isLoading, onNext
         <button 
           onClick={onNext}
           disabled={!canProceed() || isLoading}
-          className="bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-purple-700 text-white px-2 py-2 rounded-md hover:bg-purple-800 transition flex items-center text-sm gap-2 disabled:opacity-50 disabled:cursor-not-allowe"
         >
           {isLoading ? (
             <>

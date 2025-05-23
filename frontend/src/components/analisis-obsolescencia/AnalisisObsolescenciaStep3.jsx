@@ -159,14 +159,14 @@ const AnalisisObsolescenciaStep3 = ({ analysisResults, formData, onPrev, onFinis
       <div className="mt-8 flex justify-between">
         <button 
           onClick={onPrev}
-          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
+          className="border border-gray-300 text-gray-700 px-2 py-2 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
         >
           <ArrowLeft size={16} />
           Anterior
         </button>
         <button 
           onClick={onFinish}
-          className="bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition flex items-center gap-2"
+          className="bg-purple-700 text-white px-4 py-2 rounded-lg hover:bg-purple-800 text-sm transition"
         >
           Finalizar
         </button>

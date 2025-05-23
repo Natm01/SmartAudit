@@ -52,7 +52,7 @@ const AnalisisObsolescenciaStep2 = ({ validationData, onPrev, onNext, isLoading,
       <div className="mt-8 flex justify-between">
         <button 
           onClick={onPrev}
-          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
+          className="border border-gray-300 text-gray-700 px-2 py-2 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
         >
           <ArrowLeft size={16} />
           Anterior
@@ -60,7 +60,7 @@ const AnalisisObsolescenciaStep2 = ({ validationData, onPrev, onNext, isLoading,
         <button 
           onClick={onNext}
           disabled={isLoading || !validationData || validationData.some(result => result.status !== 'success')}
-          className="bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-purple-700 text-white px-2 py-2 rounded-md hover:bg-purple-800 transition flex items-center text-sm gap-2 disabled:opacity-50 disabled:cursor-not-allowe"
         >
           {isLoading ? (
             <>

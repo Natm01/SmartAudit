@@ -1,5 +1,5 @@
 // frontend/src/services/api.js
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 class APIError extends Error {
   constructor(message, status, response) {
