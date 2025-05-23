@@ -21,9 +21,14 @@ from fastapi.staticfiles import StaticFiles
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Ruta del frontend y favicon
+FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/build"))
+FAVICON_PATH = os.path.join(FRONTEND_PATH, "favicon.ico")
+
+
 # === Configuración de FastAPI ===
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
-app.mount("/", StaticFiles(directory="build", html=True), name="build")
+app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="build")
 
 
 # CORS
@@ -35,9 +40,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ruta del frontend y favicon
-FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/build"))
-FAVICON_PATH = os.path.join(FRONTEND_PATH, "favicon.ico")
 
 # Servir archivos estáticos del frontend si existe
 if os.path.exists(FRONTEND_PATH):
