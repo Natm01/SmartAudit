@@ -15,6 +15,7 @@ from app.services.file_processor import process_libro_diario, process_sumas_sald
 from app.services.validators import validate_files
 from app.services.analyzers import generate_summary
 from app.schemas.libro_diario import FileUploadResponse, ValidationResult, ProcessResult
+from fastapi.staticfiles import StaticFiles
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 # === Configuración de FastAPI ===
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
+app.mount("/", StaticFiles(directory="build", html=True), name="build")
+
 
 # CORS
 app.add_middleware(
