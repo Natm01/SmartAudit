@@ -1,33 +1,5 @@
 // frontend/src/services/api.js
-
-// Validar y obtener la URL base de la API
-const getApiBaseUrl = () => {
-  const url = process.env.REACT_APP_API_URL;
-  
-  if (!url || url === 'undefined') {
-    console.error('REACT_APP_API_URL no está definida o es undefined');
-    console.log('Variables de entorno disponibles:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')));
-    
-    // URL de fallback para desarrollo local
-    const fallbackUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:8000' 
-      : '';
-    
-    if (!fallbackUrl) {
-      throw new Error('REACT_APP_API_URL no está configurada. Por favor, configura esta variable de entorno con la URL de tu backend.');
-    }
-    
-    console.warn(`Usando URL de fallback: ${fallbackUrl}`);
-    return fallbackUrl;
-  }
-  
-  // Remover barra final si existe
-  return url.replace(/\/$/, '');
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-console.log('API_BASE_URL configurada:', API_BASE_URL);
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 class APIError extends Error {
   constructor(message, status, response) {
@@ -62,7 +34,7 @@ const handleApiResponse = async (response) => {
 };
 
 export const uploadFiles = async (formData) => {
-  console.log('Uploading files to:', `${API_BASE_URL}/api/upload`);
+  console.log('Uploading files...');
   
   try {
     // Log form data contents for debugging
@@ -101,7 +73,7 @@ export const uploadFiles = async (formData) => {
 };
 
 export const validateFilesWithStreaming = async (formData, onProgress) => {
-  console.log('Starting streaming validation to:', `${API_BASE_URL}/api/validate-stream`);
+  console.log('Starting streaming validation...');
   
   try {
     const response = await fetch(`${API_BASE_URL}/api/validate-stream`, {
@@ -184,7 +156,7 @@ export const validateFilesWithStreaming = async (formData, onProgress) => {
 };
 
 export const validateFiles = async (formData) => {
-  console.log('Validating files to:', `${API_BASE_URL}/api/validate`);
+  console.log('Validating files...');
   
   try {
     const response = await fetch(`${API_BASE_URL}/api/validate`, {
@@ -208,7 +180,7 @@ export const validateFiles = async (formData) => {
 };
 
 export const processFiles = async (formData) => {
-  console.log('Processing files to:', `${API_BASE_URL}/api/process`);
+  console.log('Processing files...');
   
   try {
     const response = await fetch(`${API_BASE_URL}/api/process`, {
@@ -298,7 +270,6 @@ export const cleanupTempFiles = async (tempDir) => {
 
 // Health check function
 export const healthCheck = async () => {
-  console.log('Health check to:', `${API_BASE_URL}/api/health`);
   try {
     const response = await fetch(`${API_BASE_URL}/api/health`);
     const result = await handleApiResponse(response);
@@ -311,7 +282,6 @@ export const healthCheck = async () => {
 
 // Test connection function
 export const testConnection = async () => {
-  console.log('Testing connection to:', `${API_BASE_URL}/api`);
   try {
     const response = await fetch(`${API_BASE_URL}/api`);
     const result = await handleApiResponse(response);
