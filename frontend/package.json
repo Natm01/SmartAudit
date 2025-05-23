@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "Frontend de SmartAudit para validación contable",
-  "proxy": "http://localhost:8000",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

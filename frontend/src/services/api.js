@@ -1,5 +1,5 @@
 // frontend/src/services/api.js
-const API_BASE_URL = process.env.REACT_APP_API_URL;
+const API_BASE_URL = process.env.REACT_APP_API_UR; // Cambiado de 8080 a 8000
 
 class APIError extends Error {
   constructor(message, status, response) {

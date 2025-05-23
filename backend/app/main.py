@@ -15,7 +15,6 @@ from app.services.file_processor import process_libro_diario, process_sumas_sald
 from app.services.validators import validate_files
 from app.services.analyzers import generate_summary
 from app.schemas.libro_diario import FileUploadResponse, ValidationResult, ProcessResult
-from fastapi.staticfiles import StaticFiles
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -25,16 +24,10 @@ logger = logging.getLogger(__name__)
 FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/build"))
 FAVICON_PATH = os.path.join(FRONTEND_PATH, "favicon.ico")
 
-
 # === Configuración de FastAPI ===
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
 
-# Servir archivos estáticos del frontend si existe
-if os.path.exists(FRONTEND_PATH):
-    app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
-
-
-# CORS
+# CORS - IMPORTANTE: Configurar antes que otros middlewares
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,17 +36,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/favicon.ico")
-async def get_favicon():
-    if os.path.exists(FAVICON_PATH):
-        return FileResponse(FAVICON_PATH)
-    raise HTTPException(status_code=404, detail="Favicon no encontrado")
-
+# === API ENDPOINTS PRIMERO ===
 
 @app.get("/api")
 async def root():
     return {"message": "SmartAudit API"}
+
+@app.get("/api/health")
+async def health_check():
+    """Endpoint para verificar el estado del servicio"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 # === Utils ===
 
@@ -282,7 +274,7 @@ async def stream_validation_progress(temp_dir: str, project: str, year: str, sta
         }) + "\n"
 
 
-# === Endpoints ===
+# === API ENDPOINTS ===
 
 @app.post("/api/upload", response_model=FileUploadResponse)
 async def upload_files(
@@ -519,11 +511,18 @@ async def cleanup_temp_files(temp_dir_encoded: str = Path(...)):
         return {"message": f"Error al eliminar archivos temporales: {str(e)}", "cleaned": False}
 
 
-# Health check endpoint
-@app.get("/api/health")
-async def health_check():
-    """Endpoint para verificar el estado del servicio"""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+# === FAVICON Y FRONTEND DESPUÉS DE LA API ===
+
+@app.get("/favicon.ico")
+async def get_favicon():
+    if os.path.exists(FAVICON_PATH):
+        return FileResponse(FAVICON_PATH)
+    raise HTTPException(status_code=404, detail="Favicon no encontrado")
+
+
+# Servir archivos estáticos del frontend DESPUÉS de definir todas las rutas de API
+if os.path.exists(FRONTEND_PATH):
+    app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
 
 
 if __name__ == "__main__":
