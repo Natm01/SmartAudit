@@ -29,6 +29,10 @@ FAVICON_PATH = os.path.join(FRONTEND_PATH, "favicon.ico")
 # === Configuración de FastAPI ===
 app = FastAPI(title="SmartAudit API", description="API para procesamiento de libros diarios contables")
 
+# Servir archivos estáticos del frontend si existe
+if os.path.exists(FRONTEND_PATH):
+    app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
+
 
 # CORS
 app.add_middleware(
