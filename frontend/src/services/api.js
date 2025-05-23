@@ -1,5 +1,19 @@
 // frontend/src/services/api.js
-const API_BASE_URL = process.env.REACT_APP_API_UR; // Cambiado de 8080 a 8000
+
+// Configuración para diferentes entornos
+const getApiBaseUrl = () => {
+  // En producción (Render), usar la URL del mismo dominio
+  if (process.env.NODE_ENV === 'production') {
+    return window.location.origin;
+  }
+  
+  // En desarrollo, usar la variable de entorno o localhost por defecto
+  return process.env.REACT_APP_API_URL || "http://localhost:8000";
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('API Base URL:', API_BASE_URL); // Para debugging
 
 class APIError extends Error {
   constructor(message, status, response) {
@@ -34,7 +48,7 @@ const handleApiResponse = async (response) => {
 };
 
 export const uploadFiles = async (formData) => {
-  console.log('Uploading files...');
+  console.log('Uploading files to:', `${API_BASE_URL}/api/upload`);
   
   try {
     // Log form data contents for debugging
