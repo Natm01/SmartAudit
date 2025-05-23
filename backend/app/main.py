@@ -32,7 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-""""
 # Ruta del frontend y favicon
 FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/build"))
 FAVICON_PATH = os.path.join(FRONTEND_PATH, "favicon.ico")
@@ -48,7 +47,6 @@ async def get_favicon():
         return FileResponse(FAVICON_PATH)
     raise HTTPException(status_code=404, detail="Favicon no encontrado")
 
-"""
 
 @app.get("/api")
 async def root():
