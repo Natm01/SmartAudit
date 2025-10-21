@@ -179,7 +179,7 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
         setStatusModal({
           open: true,
           title: 'Importación completada',
-          subtitle: 'Libro Diario validado correctamente.',
+          subtitle: 'Libro Diario y Sumas y saldos subidos correctamente.',
           status: 'success',
           executionId: executionIdLD
         });
