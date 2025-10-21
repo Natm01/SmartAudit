@@ -161,10 +161,9 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       setError(null);
 
       //  Si es la primera carga, intentar cargar mapeos
-      let wasExplicitlyApplied = false;
       if (!initialMappingsLoadedRef.current) {
         console.log('🔄 Primera carga - buscando mapeos...');
-        wasExplicitlyApplied = loadMappingsFromStorage();
+        const wasExplicitlyApplied = loadMappingsFromStorage();
         initialMappingsLoadedRef.current = true;
 
         if (wasExplicitlyApplied) {
@@ -176,15 +175,20 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
         }
       }
 
+      // CRÍTICO: Determinar si debe cargar preview mapeado
+      // Solo si appliedMappingsRef tiene contenido (significa que se aplicó mapeo)
+      const hasMappingApplied = Object.keys(appliedMappingsRef.current).length > 0;
+      const forceOriginal = !hasMappingApplied;
+
       console.log('📊 Estado antes de cargar preview:', {
         showMappedPreview,
-        wasExplicitlyApplied,
+        hasMappingApplied,
+        forceOriginal,
         fieldMappingsCount: Object.keys(fieldMappings).length,
         appliedMappingsCount: Object.keys(appliedMappingsRef.current).length
       });
 
-      // Forzar preview original si NO fue aplicado explícitamente
-      const forceOriginal = !wasExplicitlyApplied && !showMappedPreview;
+      console.log('🔍 forceOriginal:', forceOriginal, '(hasMappingApplied:', hasMappingApplied, ')');
       const t = await fetchPreviewOnce(forceOriginal);
       if (abortRef.current) return;
       
