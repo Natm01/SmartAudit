@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LiveboardEmbed } from '@thoughtspot/visual-embed-sdk/react';
 import { init, AuthType, prefetch } from '@thoughtspot/visual-embed-sdk';
-import Header from '../../components/Header/Header';
 
 const ThoughtSpotPage = () => {
   const navigate = useNavigate();
@@ -70,14 +69,11 @@ const ThoughtSpotPage = () => {
     }
   };
 
-  const handleUserChange = (newUser) => {
-    setUser(newUser);
-  };
 
   if (loading || !thoughtSpotInitialized) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header user={user} onUserChange={handleUserChange} />
+        
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-purple-600 mb-4"></div>
@@ -93,7 +89,7 @@ const ThoughtSpotPage = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header user={user} onUserChange={handleUserChange} />
+        
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white rounded-xl shadow-sm p-8 text-center border border-red-100">
             <h2 className="text-xl font-semibold text-red-600 mb-2">Error de acceso</h2>
