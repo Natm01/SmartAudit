@@ -104,7 +104,7 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
       
       setStatusModal({
         open: true,
-        title: 'Subiendo archivos…',
+        title: 'Importando archivos',
         subtitle: 'Cargando Libro Diario' + (sumasSaldosFile ? ' y Sumas y Saldos' : ''),
         status: 'loading',
         executionId: null,
