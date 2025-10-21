@@ -294,24 +294,6 @@ const ValidationPage = () => {
     }
   };
 
-  const getProcessStatus = () => {
-    switch (processState.step) {
-      case 'starting':
-        return { status: 'loading', message: 'Iniciando proceso...' };
-      case 'validating':
-        return { status: 'loading', message: 'Validando archivos...' };
-      case 'converting':
-        return { status: 'loading', message: 'Convirtiendo Libro Diario...' };
-      case 'mapping':
-        return { status: 'loading', message: 'Ejecutando mapeo de campos...' };
-      case 'completed':
-        return { status: 'success', message: 'Proceso completado correctamente' };
-      case 'error':
-        return { status: 'error', message: 'Error en el proceso' };
-      default:
-        return { status: 'loading', message: 'Procesando...' };
-    }
-  };
 
   const canProceedToResults = () => {
     return processState.step === 'completed' && 
@@ -381,8 +363,6 @@ const ValidationPage = () => {
       </div>
     );
   }
-
-  const processStatus = getProcessStatus();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -471,49 +451,6 @@ const ValidationPage = () => {
             </div>
           </div>
 
-          {/* Status Card */}
-          <div className={`px-4 py-3 rounded border ${
-            processStatus.status === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-700' 
-              : processStatus.status === 'error'
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-blue-50 border-blue-200 text-blue-700'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  {processStatus.status === 'success' && (
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                  {processStatus.status === 'error' && (
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  )}
-                  {processStatus.status === 'loading' && (
-                    <svg className="w-5 h-5 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                  )}
-                </div>
-                <div className="ml-3">
-                  <span className="block sm:inline">{processStatus.message}</span>
-                </div>
-              </div>
-              
-              {processStatus.status === 'error' && (
-                <button
-                  onClick={handleRestartProcess}
-                  className="text-xs text-red-600 hover:text-red-800 underline"
-                >
-                  Reiniciar proceso
-                </button>
-              )}
-            </div>
-          </div>
 
           {/* ================================================ */}
           {/* SECCIÓN DESPLEGABLE: LIBRO DIARIO                */}
