@@ -18,10 +18,13 @@ const ValidationPage = () => {
   const [sumasSaldosExecutionData, setSumasSaldosExecutionData] = useState(null);
   const [loading, setLoading] = useState(false); // Cambiado a false para mostrar la página inmediatamente
   const [error, setError] = useState(null);
-  
+
   // Estados para controlar las secciones desplegables
   const [libroDiarioExpanded, setLibroDiarioExpanded] = useState(true);
   const [sumasSaldosExpanded, setSumasSaldosExpanded] = useState(true);
+
+  // Estado para controlar si el mapeo fue aplicado
+  const [isMappingApplied, setIsMappingApplied] = useState(false);
   
   // Estados del proceso paso a paso
   const [processState, setProcessState] = useState({
@@ -98,6 +101,15 @@ const ValidationPage = () => {
 
   useEffect(() => {
     loadInitialData();
+    // Cargar estado de mapeo aplicado desde sessionStorage
+    try {
+      const mappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}`);
+      if (mappingAppliedStatus === 'true') {
+        setIsMappingApplied(true);
+      }
+    } catch (error) {
+      console.warn('Could not load mapping applied status:', error);
+    }
   }, [executionId]);
 
   useEffect(() => {
@@ -489,24 +501,27 @@ const ValidationPage = () => {
             {/* Contenido desplegable */}
             {libroDiarioExpanded && (
             <div className="border-t border-gray-200 p-6 space-y-6">
-              <ValidationPhases 
-                fileType="libro_diario" 
-                executionId={executionId}
-                period={executionData?.period}
-                onComplete={() => {
-                  console.log('Validación de Libro Diario completada');
-                  // AquÃ­ puedes actualizar el estado si necesitas
-                }}
-              />
-              
+              {/* Primero: Mapeo de columnas */}
               {shouldShowPreview() && (
-                <FilePreview 
-                  file={executionData.libroDiarioFile} 
-                  fileType="libro_diario" 
-                  executionId={executionId} 
-                  maxRows={25} 
+                <FilePreview
+                  file={executionData.libroDiarioFile}
+                  fileType="libro_diario"
+                  executionId={executionId}
+                  maxRows={25}
+                  onMappingApplied={(applied) => setIsMappingApplied(applied)}
                 />
               )}
+
+              {/* Segundo: Validación */}
+              <ValidationPhases
+                fileType="libro_diario"
+                executionId={executionId}
+                period={executionData?.period}
+                isMappingApplied={isMappingApplied}
+                onComplete={() => {
+                  console.log('Validación de Libro Diario completada');
+                }}
+              />
 
               {!shouldShowPreview() && (
                 <div className="bg-gray-50 rounded-lg p-6 text-center">
