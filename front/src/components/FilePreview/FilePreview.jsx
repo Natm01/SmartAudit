@@ -97,6 +97,8 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
             } else {
               // Solo cargar los mapeos sin activar el preview mapeado
               setFieldMappings(mappings);
+              setShowMappedNames(false);  // Asegurar que NO muestra nombres mapeados
+              setShowMappedPreview(false); // Asegurar que NO muestra preview mapeado
               console.log('⚠️ Mapeos cargados pero preview NO mapeado (falta aplicar mapeo)');
             }
             return wasExplicitlyApplied;

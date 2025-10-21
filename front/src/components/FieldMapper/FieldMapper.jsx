@@ -243,53 +243,24 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     setLoading(true);
     try {
       const mappings = [];
-      const changedMappings = [];
 
-      //  SOLUCIÓN: Marcar con force_override=true CUALQUIER campo que ya estaba mapeado
-      // Obtener lista de todos los campos que están actualmente mapeados en el backend
-      const backendMappedFields = new Set();
-      if (fileType === 'libro_diario' && originalBackendMappings?.mappings) {
-        Object.values(originalBackendMappings.mappings).forEach(field => {
-          if (field) backendMappedFields.add(field);
-        });
-      } else if (originalBackendMappings) {
-        Object.values(originalBackendMappings).forEach(field => {
-          if (field) backendMappedFields.add(field);
-        });
-      }
-
-      console.log('🔍 Campos ya mapeados en backend:', Array.from(backendMappedFields));
-
+      // Cuando el usuario hace click en "Aplicar Mapeo", es una acción EXPLÍCITA
+      // Siempre usar force_override=true porque el usuario está confirmando el mapeo
       Object.entries(fieldMappings).forEach(([sourceColumn, standardField]) => {
         if (standardField) {
-          // Verificar si este mapeo cambió respecto al original del backend
-          const originalMapping = fileType === 'libro_diario' 
-            ? originalBackendMappings?.mappings?.[sourceColumn]
-            : originalBackendMappings?.[sourceColumn];
-          
-          const hasChanged = originalMapping !== standardField;
-          
-          //  CRÍTICO: Si el campo de destino YA estaba mapeado en el backend, 
-          // usar force_override=true para permitir re-asignarlo
-          const wasAlreadyMapped = backendMappedFields.has(standardField);
-          
           const mappingObj = {
             column_name: sourceColumn,
             selected_field: standardField,
-            force_override: wasAlreadyMapped  //  True si el campo ya existía en cualquier mapeo
+            force_override: true  // SIEMPRE true cuando el usuario aplica manualmente
           };
-          
+
           if (fileType === 'libro_diario' && fieldConfidences[sourceColumn] !== undefined) {
             mappingObj.confidence = fieldConfidences[sourceColumn];
           } else if (fileType === 'libro_diario') {
             mappingObj.confidence = 1.0; // Mapeo manual = 100% confianza
           }
-          
+
           mappings.push(mappingObj);
-          
-          if (hasChanged) {
-            changedMappings.push(`${sourceColumn} -> ${standardField} (override=${wasAlreadyMapped})`);
-          }
         }
       });
 
@@ -302,13 +273,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         return;
       }
 
-      console.log(`📤 Enviando ${mappings.length} mapeos totales al backend (${changedMappings.length} cambios):`);
-      if (changedMappings.length > 0) {
-        console.log('🔄 Cambios detectados:', changedMappings);
-      }
+      console.log(`📤 Enviando ${mappings.length} mapeos al backend con force_override=true`);
 
       let result;
-      
+
       if (fileType === 'sumas_saldos') {
         result = await importService.applySumasSaldosManualMapping(executionId, mappings);
       } else {
