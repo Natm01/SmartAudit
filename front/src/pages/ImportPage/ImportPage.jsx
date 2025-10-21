@@ -154,10 +154,10 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
       }
 
       setStatusModal({
-        open: true, 
-        title: 'Validando…',
+        open: true,
+        title: 'Importando archivos...',
         subtitle: 'Libro Diario en proceso de validación. Esto puede tardar unos momentos.',
-        status: 'loading', 
+        status: 'loading',
         executionId: executionIdLD,
       });
 
@@ -176,12 +176,12 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
 
       if (pollLD.success && pollLD.finalStatus === 'completed') {
         await loadInitialData();
-        setStatusModal({ 
-          open: true, 
-          title: ' Validación completada', 
-          subtitle: 'Libro Diario validado correctamente.', 
-          status: 'success', 
-          executionId: executionIdLD 
+        setStatusModal({
+          open: true,
+          title: 'Importación completada',
+          subtitle: 'Libro Diario validado correctamente.',
+          status: 'success',
+          executionId: executionIdLD
         });
       } else {
         setStatusModal({ 
