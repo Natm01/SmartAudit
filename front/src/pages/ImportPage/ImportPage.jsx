@@ -104,8 +104,8 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
       
       setStatusModal({
         open: true,
-        title: 'Subiendo archivos…',
-        subtitle: 'Cargando Libro Diario' + (sumasSaldosFile ? ' y Sumas y Saldos' : ''),
+        title: 'Importando archivos...',
+        subtitle: 'Procesando Libro Diario' + (sumasSaldosFile ? ' y Sumas y Saldos' : '') + '. Esto puede tardar unos momentos.',
         status: 'loading',
         executionId: null,
       });
@@ -133,13 +133,11 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
         } catch {}
       }
 
-      setStatusModal({
-        open: true, 
-        title: 'Archivo(s) subido(s) correctamente',
+      setStatusModal(prev => ({
+        ...prev,
         subtitle: 'Iniciando validación de Libro Diario…',
-        status: 'info', 
         executionId: executionIdLD,
-      });
+      }));
 
       const startValLD = await importService.startValidation(executionIdLD);
       if (!startValLD.success) {
@@ -153,13 +151,11 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
         return;
       }
 
-      setStatusModal({
-        open: true,
-        title: 'Importando archivos...',
+      setStatusModal(prev => ({
+        ...prev,
         subtitle: 'Libro Diario en proceso de validación. Esto puede tardar unos momentos.',
-        status: 'loading',
         executionId: executionIdLD,
-      });
+      }));
 
       const pollLD = await importService.pollValidationStatus(executionIdLD, {
         intervalMs: 2000,
