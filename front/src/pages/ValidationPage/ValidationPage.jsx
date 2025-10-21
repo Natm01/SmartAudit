@@ -16,7 +16,7 @@ const ValidationPage = () => {
   // Estados principales
   const [executionData, setExecutionData] = useState(null);
   const [sumasSaldosExecutionData, setSumasSaldosExecutionData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Cambiado a false para mostrar la página inmediatamente
   const [error, setError] = useState(null);
   
   // Estados para controlar las secciones desplegables
@@ -108,12 +108,10 @@ const ValidationPage = () => {
 
   const loadInitialData = async () => {
     try {
-      setLoading(true);
       setError(null);
-      
+
       if (!executionId) {
         setError('ID de ejecución no encontrado');
-        setLoading(false);
         return;
       }
       
