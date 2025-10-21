@@ -26,15 +26,16 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
   const cleanupValidationCache = () => {
     try {
       const keys = Object.keys(sessionStorage);
-      const validationKeys = keys.filter(key => 
-        key.startsWith('validation_') || 
-        key.startsWith('fieldmapper_')
+      const validationKeys = keys.filter(key =>
+        key.startsWith('validation_') ||
+        key.startsWith('fieldmapper_') ||
+        key.startsWith('mappingApplied_')
       );
-      
+
       validationKeys.forEach(key => {
         sessionStorage.removeItem(key);
       });
-      
+
       console.log('🧹 Cleaned up validation cache:', validationKeys.length, 'items removed');
     } catch (error) {
       console.warn('Could not cleanup validation cache:', error);
