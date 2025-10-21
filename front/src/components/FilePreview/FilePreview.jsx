@@ -113,13 +113,14 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     return false;
   };
 
-  const fetchPreviewOnce = async () => {
+  const fetchPreviewOnce = async (forceOriginal = false) => {
     let url;
-    
+
     if (fileType === 'sumas_saldos') {
       url = `/api/import/preview-sumas-saldos/${encodeURIComponent(executionId)}/original?_=${Date.now()}`;
     } else {
-      if (showMappedPreview) {
+      // Si forceOriginal es true, siempre cargar el original
+      if (!forceOriginal && showMappedPreview) {
         url = `/api/import/preview/${encodeURIComponent(executionId)}/mapped?_=${Date.now()}`;
         console.log('📄 Cargando preview MAPEADO');
       } else {
@@ -156,29 +157,35 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     if (!executionId) return;
 
     try {
-      setLoading(true); 
+      setLoading(true);
       setError(null);
-      
+
       //  Si es la primera carga, intentar cargar mapeos
+      let wasExplicitlyApplied = false;
       if (!initialMappingsLoadedRef.current) {
         console.log('🔄 Primera carga - buscando mapeos...');
-        const hasMappings = loadMappingsFromStorage();
+        wasExplicitlyApplied = loadMappingsFromStorage();
         initialMappingsLoadedRef.current = true;
-        
-        if (hasMappings) {
+
+        if (wasExplicitlyApplied) {
           console.log(' Mapeos cargados - esperando actualización de estados...');
           //  Esperar más tiempo para que React actualice TODOS los estados
           await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+          console.log('⚠️ Mapeos NO aplicados explícitamente - forzando preview original');
         }
       }
-      
+
       console.log('📊 Estado antes de cargar preview:', {
         showMappedPreview,
+        wasExplicitlyApplied,
         fieldMappingsCount: Object.keys(fieldMappings).length,
         appliedMappingsCount: Object.keys(appliedMappingsRef.current).length
       });
-      
-      const t = await fetchPreviewOnce();
+
+      // Forzar preview original si NO fue aplicado explícitamente
+      const forceOriginal = !wasExplicitlyApplied && !showMappedPreview;
+      const t = await fetchPreviewOnce(forceOriginal);
       if (abortRef.current) return;
       
       if (t.headers.length === 0 || t.table.length === 0) {
@@ -191,25 +198,26 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       
       //  IMPORTANTE: Marcar que ya se cargó el preview
       previewLoadedRef.current = true;
-      
-      //  Si hay mapeos y estamos en modo mapeado, reconstruir
-      const currentMappings = Object.keys(appliedMappingsRef.current).length > 0 
-                              ? appliedMappingsRef.current 
-                              : fieldMappings;
-      
-      if (showMappedPreview && Object.keys(currentMappings).length > 0) {
-        console.log('🔄 Reconstruyendo mapeos visuales...');
+
+      //  Solo reconstruir mapeos si el mapeo fue EXPLÍCITAMENTE aplicado
+      // Verificar tanto el estado como appliedMappingsRef
+      const shouldShowMapped = Object.keys(appliedMappingsRef.current).length > 0;
+
+      if (shouldShowMapped && showMappedPreview) {
+        console.log('🔄 Reconstruyendo mapeos visuales (mapeo aplicado explícitamente)...');
         const reconstructedMappings = {};
-        
+
         t.headers.forEach(headerBD => {
-          if (Object.values(currentMappings).includes(headerBD)) {
+          if (Object.values(appliedMappingsRef.current).includes(headerBD)) {
             reconstructedMappings[headerBD] = headerBD;
             console.log(`  ✓ ${headerBD}`);
           }
         });
-        
+
         console.log(' Total reconstruido:', Object.keys(reconstructedMappings).length);
         setFieldMappings(reconstructedMappings);
+      } else {
+        console.log('ℹ️ Preview original - mapeo no aplicado explícitamente');
       }
       
       retryCountRef.current = 0;
