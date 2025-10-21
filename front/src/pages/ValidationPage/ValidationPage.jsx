@@ -217,7 +217,7 @@ const ValidationPage = () => {
       
       setStatusModal({
         open: true,
-        title: 'Iniciando validación...',
+        title: 'Cargando archivos',
         subtitle: 'Verificando archivos antes del procesamiento',
         status: 'loading'
       });
