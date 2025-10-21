@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import importService from '../../services/importService';
 
-const ValidationPhases = ({ fileType, executionId, period, onComplete }) => {
+const ValidationPhases = ({ fileType, executionId, period, onComplete, isMappingApplied = true }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [phases, setPhases] = useState([]);
   const [isValidating, setIsValidating] = useState(false);
@@ -248,18 +248,31 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete }) => {
             {/* Botón para iniciar validación */}
             <div className="flex items-center ml-4">
               {!isValidating && !allCompleted && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startValidation();
-                  }}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
-                >
-                  <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m2-10v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2h8l4 4z" />
-                  </svg>
-                  Iniciar Validación
-                </button>
+                <div className="flex flex-col items-end">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startValidation();
+                    }}
+                    disabled={!isMappingApplied}
+                    className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white transition-colors ${
+                      isMappingApplied
+                        ? 'bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
+                        : 'bg-gray-400 cursor-not-allowed'
+                    }`}
+                    title={!isMappingApplied ? 'Primero debes aplicar el mapeo de campos' : ''}
+                  >
+                    <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m2-10v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2h8l4 4z" />
+                    </svg>
+                    Iniciar Validación
+                  </button>
+                  {!isMappingApplied && (
+                    <span className="text-xs text-gray-500 mt-1">
+                      Aplica el mapeo primero
+                    </span>
+                  )}
+                </div>
               )}
               
               {/* Icono de expand/collapse */}

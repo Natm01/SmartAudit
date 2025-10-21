@@ -18,10 +18,14 @@ const ValidationPage = () => {
   const [sumasSaldosExecutionData, setSumasSaldosExecutionData] = useState(null);
   const [loading, setLoading] = useState(false); // Cambiado a false para mostrar la página inmediatamente
   const [error, setError] = useState(null);
-  
+
   // Estados para controlar las secciones desplegables
   const [libroDiarioExpanded, setLibroDiarioExpanded] = useState(true);
   const [sumasSaldosExpanded, setSumasSaldosExpanded] = useState(true);
+
+  // Estado para controlar si el mapeo fue aplicado
+  const [isMappingApplied, setIsMappingApplied] = useState(false);
+  const [isSumasSaldosMappingApplied, setIsSumasSaldosMappingApplied] = useState(false);
   
   // Estados del proceso paso a paso
   const [processState, setProcessState] = useState({
@@ -98,6 +102,21 @@ const ValidationPage = () => {
 
   useEffect(() => {
     loadInitialData();
+    // Cargar estado de mapeo aplicado desde sessionStorage
+    try {
+      const mappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}`);
+      if (mappingAppliedStatus === 'true') {
+        setIsMappingApplied(true);
+      }
+
+      // Cargar estado de mapeo aplicado para Sumas y Saldos
+      const ssMappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}-ss`);
+      if (ssMappingAppliedStatus === 'true') {
+        setIsSumasSaldosMappingApplied(true);
+      }
+    } catch (error) {
+      console.warn('Could not load mapping applied status:', error);
+    }
   }, [executionId]);
 
   useEffect(() => {
@@ -217,7 +236,7 @@ const ValidationPage = () => {
       
       setStatusModal({
         open: true,
-        title: 'Cargando archivos',
+        title: 'Cargando y procesando archivos',
         subtitle: 'Verificando archivos antes del procesamiento',
         status: 'loading'
       });
@@ -294,24 +313,6 @@ const ValidationPage = () => {
     }
   };
 
-  const getProcessStatus = () => {
-    switch (processState.step) {
-      case 'starting':
-        return { status: 'loading', message: 'Iniciando proceso...' };
-      case 'validating':
-        return { status: 'loading', message: 'Validando archivos...' };
-      case 'converting':
-        return { status: 'loading', message: 'Convirtiendo Libro Diario...' };
-      case 'mapping':
-        return { status: 'loading', message: 'Ejecutando mapeo de campos...' };
-      case 'completed':
-        return { status: 'success', message: 'Proceso completado correctamente' };
-      case 'error':
-        return { status: 'error', message: 'Error en el proceso' };
-      default:
-        return { status: 'loading', message: 'Procesando...' };
-    }
-  };
 
   const canProceedToResults = () => {
     return processState.step === 'completed' && 
@@ -381,8 +382,6 @@ const ValidationPage = () => {
       </div>
     );
   }
-
-  const processStatus = getProcessStatus();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -471,49 +470,6 @@ const ValidationPage = () => {
             </div>
           </div>
 
-          {/* Status Card */}
-          <div className={`px-4 py-3 rounded border ${
-            processStatus.status === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-700' 
-              : processStatus.status === 'error'
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-blue-50 border-blue-200 text-blue-700'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  {processStatus.status === 'success' && (
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                  {processStatus.status === 'error' && (
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  )}
-                  {processStatus.status === 'loading' && (
-                    <svg className="w-5 h-5 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                  )}
-                </div>
-                <div className="ml-3">
-                  <span className="block sm:inline">{processStatus.message}</span>
-                </div>
-              </div>
-              
-              {processStatus.status === 'error' && (
-                <button
-                  onClick={handleRestartProcess}
-                  className="text-xs text-red-600 hover:text-red-800 underline"
-                >
-                  Reiniciar proceso
-                </button>
-              )}
-            </div>
-          </div>
 
           {/* ================================================ */}
           {/* SECCIÓN DESPLEGABLE: LIBRO DIARIO                */}
@@ -550,39 +506,41 @@ const ValidationPage = () => {
             </button>
 
             {/* Contenido desplegable */}
-            {libroDiarioExpanded && (
+            {libroDiarioExpanded && executionData && (
             <div className="border-t border-gray-200 p-6 space-y-6">
-              <ValidationPhases 
-                fileType="libro_diario" 
-                executionId={executionId}
-                period={executionData?.period}
-                onComplete={() => {
-                  console.log('Validación de Libro Diario completada');
-                  // AquÃ­ puedes actualizar el estado si necesitas
-                }}
-              />
-              
-              {shouldShowPreview() && (
-                <FilePreview 
-                  file={executionData.libroDiarioFile} 
-                  fileType="libro_diario" 
-                  executionId={executionId} 
-                  maxRows={25} 
+              {/* Primero: Mapeo de columnas */}
+              {shouldShowPreview() ? (
+                <FilePreview
+                  file={executionData.libroDiarioFile}
+                  fileType="libro_diario"
+                  executionId={executionId}
+                  maxRows={25}
+                  onMappingApplied={(applied) => setIsMappingApplied(applied)}
                 />
-              )}
-
-              {!shouldShowPreview() && (
+              ) : (
                 <div className="bg-gray-50 rounded-lg p-6 text-center">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-purple-600 mb-4"></div>
                   <h3 className="text-sm font-medium text-gray-900 mb-2">Procesando archivo...</h3>
                   <p className="text-xs text-gray-600">
                     {processState.step === 'validating' && 'Validando estructura del archivo'}
-                    {processState.step === 'converting' && 'Convirtiendo a formato estÃ¡ndar'}
+                    {processState.step === 'converting' && 'Convirtiendo a formato estándar'}
                     {processState.step === 'mapping' && 'Generando sugerencias de mapeo'}
                     {processState.step === 'starting' && 'Iniciando proceso'}
+                    {!processState.step && 'Preparando vista previa del archivo'}
                   </p>
                 </div>
               )}
+
+              {/* Segundo: Validación */}
+              <ValidationPhases
+                fileType="libro_diario"
+                executionId={executionId}
+                period={executionData?.period}
+                isMappingApplied={isMappingApplied}
+                onComplete={() => {
+                  console.log('Validación de Libro Diario completada');
+                }}
+              />
             </div>
           )}
           </div>
@@ -624,26 +582,28 @@ const ValidationPage = () => {
               {/* Contenido desplegable */}
               {sumasSaldosExpanded && (
                 <div className="border-t border-gray-200 p-6 space-y-6">
-                  
-                  {/* ✅ COMPONENTE DE VALIDACIONES PARA SUMAS Y SALDOS - PROPS CORREGIDOS */}
-                  <ValidationPhases 
-                    fileType="sumas_saldos" 
-                    executionId={sumasSaldosExecutionData?.execution_id}
-                    period={executionData?.period}  // Se pasa pero no se usa en sumas_saldos
-                    onComplete={() => {
-                      console.log('Validación de Sumas y Saldos completada');
-                    }}
-                  />
 
-                  {/* Preview del archivo con mapeo de Sumas y Saldos */}
-                  {processState.sumasSaldos.validated && sumasSaldosExecutionData?.execution_id && (
+                  {/* Primero: Mapeo de columnas para Sumas y Saldos */}
+                  {sumasSaldosExecutionData?.execution_id && (
                     <FilePreview
                       fileType="sumas_saldos"
                       executionId={sumasSaldosExecutionData.execution_id}
                       maxRows={10}
                       showMapperByDefault={true}
+                      onMappingApplied={(applied) => setIsSumasSaldosMappingApplied(applied)}
                     />
                   )}
+
+                  {/* Segundo: Validación para Sumas y Saldos */}
+                  <ValidationPhases
+                    fileType="sumas_saldos"
+                    executionId={sumasSaldosExecutionData?.execution_id}
+                    period={executionData?.period}
+                    isMappingApplied={isSumasSaldosMappingApplied}
+                    onComplete={() => {
+                      console.log('Validación de Sumas y Saldos completada');
+                    }}
+                  />
 
                   {/* Estado de error de validación */}
                   {processState.sumasSaldos.validationError && (

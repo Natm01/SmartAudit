@@ -43,19 +43,15 @@ const getEnvironment = () => {
 const API_URLS = {
   development: {
     proto: 'http://localhost:8001/smau-proto',
-    portal: 'http://localhost:8000/smau-portal',
   },
   dev: {
     proto: 'https://devapi.grantthornton.es/smau-proto',
-    portal: 'https://devapi.grantthornton.es/smau-portal',
   },
   test: {
     proto: 'https://testapi.grantthornton.es/smau-proto',
-    portal: 'https://testapi.grantthornton.es/smau-portal',
   },
   prod: {
     proto: 'https://api.grantthornton.es/smau-proto',
-    portal: 'https://api.grantthornton.es/smau-portal',
   },
 };
 
@@ -89,10 +85,6 @@ const config = {
   // Puede sobrescribirse con REACT_APP_PROTO_API_URL
   protoApiUrl: process.env.REACT_APP_PROTO_API_URL || API_URLS[environment].proto,
 
-  // URL del API Portal (SmartAudit Portal - /smau-portal)
-  // Puede sobrescribirse con REACT_APP_PORTAL_API_URL
-  portalApiUrl: process.env.REACT_APP_PORTAL_API_URL || API_URLS[environment].portal,
-
   // URL de ThoughtSpot
   // Puede sobrescribirse con REACT_APP_THOUGHTSPOT_HOST
   thoughtSpotHost: process.env.REACT_APP_THOUGHTSPOT_HOST || THOUGHTSPOT_URLS[environment],
@@ -109,7 +101,6 @@ if (process.env.NODE_ENV === 'development') {
   console.log('⚙️ Config:', {
     environment: config.environment,
     protoApiUrl: config.protoApiUrl,
-    portalApiUrl: config.portalApiUrl,
     thoughtSpotHost: config.thoughtSpotHost,
   });
 }

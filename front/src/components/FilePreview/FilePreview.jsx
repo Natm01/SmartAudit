@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import FieldMapper from '../FieldMapper/FieldMapper';
 import api from '../../services/api';
 
-const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDefault = true }) => {
+const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDefault = true, onMappingApplied }) => {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -259,27 +259,39 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
 
   const handleMappingChange = async (newMap) => {
     console.log('📋 Mapeo aplicado:', newMap);
-    
+
     isApplyingMappingRef.current = true;
-    
+
     appliedMappingsRef.current = newMap || {};
     setFieldMappings(newMap || {});
-    
+
     if (newMap && Object.keys(newMap).length > 0) {
       setShowMappedNames(true);
       setShowMappedPreview(true);
       retryCountRef.current = 0;
-      
+
       setLoading(true);
-      
+
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
+
       isApplyingMappingRef.current = false;
       //  Resetear el flag para permitir la recarga
       previewLoadedRef.current = false;
       await loadPreviewData();
+
+      // Notificar al padre que el mapeo fue aplicado
+      if (onMappingApplied) {
+        onMappingApplied(true);
+      }
+
+      // Guardar en sessionStorage que el mapeo fue aplicado
+      try {
+        sessionStorage.setItem(`mappingApplied_${executionId}`, 'true');
+      } catch (error) {
+        console.warn('Could not save mapping applied status:', error);
+      }
     }
-    
+
     setShowAppliedNotification(true);
     setTimeout(() => setShowAppliedNotification(false), 1800);
   };
