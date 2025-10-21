@@ -502,7 +502,7 @@ const ValidationPage = () => {
             {libroDiarioExpanded && (
             <div className="border-t border-gray-200 p-6 space-y-6">
               {/* Primero: Mapeo de columnas */}
-              {shouldShowPreview() && (
+              {shouldShowPreview() ? (
                 <FilePreview
                   file={executionData.libroDiarioFile}
                   fileType="libro_diario"
@@ -510,6 +510,18 @@ const ValidationPage = () => {
                   maxRows={25}
                   onMappingApplied={(applied) => setIsMappingApplied(applied)}
                 />
+              ) : (
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-purple-600 mb-4"></div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">Procesando archivo...</h3>
+                  <p className="text-xs text-gray-600">
+                    {processState.step === 'validating' && 'Validando estructura del archivo'}
+                    {processState.step === 'converting' && 'Convirtiendo a formato estándar'}
+                    {processState.step === 'mapping' && 'Generando sugerencias de mapeo'}
+                    {processState.step === 'starting' && 'Iniciando proceso'}
+                    {!processState.step && 'Preparando vista previa del archivo'}
+                  </p>
+                </div>
               )}
 
               {/* Segundo: Validación */}
@@ -522,19 +534,6 @@ const ValidationPage = () => {
                   console.log('Validación de Libro Diario completada');
                 }}
               />
-
-              {!shouldShowPreview() && (
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-purple-600 mb-4"></div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">Procesando archivo...</h3>
-                  <p className="text-xs text-gray-600">
-                    {processState.step === 'validating' && 'Validando estructura del archivo'}
-                    {processState.step === 'converting' && 'Convirtiendo a formato estÃ¡ndar'}
-                    {processState.step === 'mapping' && 'Generando sugerencias de mapeo'}
-                    {processState.step === 'starting' && 'Iniciando proceso'}
-                  </p>
-                </div>
-              )}
             </div>
           )}
           </div>
