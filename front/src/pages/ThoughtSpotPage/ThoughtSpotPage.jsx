@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LiveboardEmbed } from '@thoughtspot/visual-embed-sdk/react';
 import { init, AuthType, prefetch } from '@thoughtspot/visual-embed-sdk';
+import config from '../../config/env';
 
 const ThoughtSpotPage = () => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const ThoughtSpotPage = () => {
   const initializeThoughtSpot = async () => {
     try {
       await init({
-        thoughtSpotHost: process.env.REACT_APP_THOUGHTSPOT_HOST || 'https://gt-es.thoughtspot.cloud/',
+        thoughtSpotHost: config.thoughtSpotHost,
         authType: AuthType.None,
         
         // MEJORA 1: Solución para cookies de terceros en Chrome/Edge

@@ -1,30 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from './authConfig';
-
-// Función para obtener la URL del API del portal según el entorno
-const getPortalApiUrl = () => {
-  // 1. Prioridad: Variable de entorno explícita
-  if (process.env.REACT_APP_PORTAL_API_URL) {
-    return process.env.REACT_APP_PORTAL_API_URL;
-  }
-
-  // 2. Desarrollo local
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:8000/smau-portal'; // Puerto del portal en desarrollo
-  }
-
-  // 3. Detección automática por hostname
-  const hostname = window.location.hostname;
-
-  if (hostname.includes('dev') || hostname.includes('purple-') || hostname.includes('dev-')) {
-    return 'https://devapi.grantthornton.es/smau-portal';
-  } else if (hostname.includes('test') || hostname.includes('green-') || hostname.includes('test-')) {
-    return 'https://testapi.grantthornton.es/smau-portal';
-  } else {
-    return 'https://api.grantthornton.es/smau-portal';
-  }
-};
+import config from '../config/env';
 
 // Crear contexto
 const AuthContext = createContext();
@@ -92,10 +69,9 @@ export const AuthProvider = ({ children }) => {
 
         // Luego pedimos los datos enriquecidos del usuario desde el backend
         const idToken = response.idToken;
-        const portalApiUrl = getPortalApiUrl();
 
         try {
-          const apiResponse = await fetch(`${portalApiUrl}/api/v1/users/me`, {
+          const apiResponse = await fetch(`${config.portalApiUrl}/api/v1/users/me`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${idToken}`,

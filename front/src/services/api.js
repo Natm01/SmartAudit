@@ -1,41 +1,8 @@
 // frontend/src/services/api.js
 import axios from 'axios';
+import config from '../config/env';
 
-// Configuración de URLs por entorno - CORREGIDO
-const getApiBaseUrl = () => {
-  // 1. Prioridad: Variable de entorno explícita
-  if (process.env.REACT_APP_API_URL) {
-    console.log('Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-    return process.env.REACT_APP_API_URL;
-  }
-
-  // 2. Desarrollo local
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Development mode: using localhost');
-    return 'http://localhost:8001/smau-proto';  // Puerto por defecto de tu FastAPI
-  }
-
-  // 3. Detección automática por hostname - CORREGIDO SEGÚN TUS PIPELINES
-  const hostname = window.location.hostname;
-  console.log('Detecting environment from hostname:', hostname);
-  
-  if (hostname.includes('dev') || hostname.includes('purple-') || hostname.includes('dev-')) {
-    // CORREGIDO: Según tu pipeline, el health check apunta a devapi.grantthornton.es
-    const apiUrl = 'https://devapi.grantthornton.es/smau-proto';
-    console.log('DEV environment detected, using:', apiUrl);
-    return apiUrl;
-  } else if (hostname.includes('test') || hostname.includes('green-') || hostname.includes('test-')) {
-    const apiUrl = 'https://testapi.grantthornton.es';
-    console.log('TEST environment detected, using:', apiUrl);
-    return apiUrl;
-  } else {
-    const apiUrl = 'https://api.grantthornton.es';
-    console.log('PROD environment detected, using:', apiUrl);
-    return apiUrl;
-  }
-};
-
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = config.protoApiUrl;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -47,12 +14,12 @@ const api = axios.create({
 
 // Interceptor para requests
 api.interceptors.request.use(
-  (config) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('API Request:', config.method?.toUpperCase(), config.url);
-      console.log('Full URL:', `${API_BASE_URL}${config.url}`);
+  (requestConfig) => {
+    if (config.isDevelopment) {
+      console.log('API Request:', requestConfig.method?.toUpperCase(), requestConfig.url);
+      console.log('Full URL:', `${API_BASE_URL}${requestConfig.url}`);
     }
-    return config;
+    return requestConfig;
   },
   (error) => {
     console.error('Request Error:', error);
@@ -63,7 +30,7 @@ api.interceptors.request.use(
 // Interceptor para responses
 api.interceptors.response.use(
   (response) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDevelopment) {
       console.log('API Response:', response.status, response.config.url);
     }
     return response;
