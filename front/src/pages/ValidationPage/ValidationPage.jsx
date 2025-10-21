@@ -95,6 +95,9 @@ const ValidationPage = () => {
       sessionStorage.removeItem(getStorageKey('processState'));
       sessionStorage.removeItem(getStorageKey('timestamp'));
       sessionStorage.removeItem(getStorageKey('executionData'));
+      // Limpiar flags de mapeo aplicado
+      sessionStorage.removeItem(`mappingApplied_${executionId}`);
+      sessionStorage.removeItem(`mappingApplied_${executionId}-ss`);
     } catch (error) {
       console.warn('Could not clear sessionStorage:', error);
     }

@@ -57,41 +57,56 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   //  Función que busca en TODAS las keys de sessionStorage
   const loadMappingsFromStorage = () => {
     if (!executionId) return false;
-    
+
     console.log('💾 Buscando mapeos en TODAS las keys de sessionStorage...');
-    
+
+    // Primero verificar si el mapeo fue EXPLÍCITAMENTE aplicado
+    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
+    const wasExplicitlyApplied = mappingAppliedFlag === 'true';
+
+    console.log('🔍 Mapeo explícitamente aplicado?', wasExplicitlyApplied);
+
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      
+
       if (key && key.includes(executionId) && key.includes('fieldMappings')) {
         console.log(`💾 Key encontrada: ${key}`);
-        
+
         try {
           const savedMappings = sessionStorage.getItem(key);
           const parsed = JSON.parse(savedMappings);
           console.log(`💾 Contenido:`, parsed);
-          
+
           let mappings = {};
           if (fileType === 'libro_diario') {
             mappings = parsed.mappings || parsed;
           } else {
             mappings = parsed;
           }
-          
+
           if (Object.keys(mappings).length > 0) {
             console.log(' RESTAURANDO', Object.keys(mappings).length, 'MAPEOS desde key:', key);
-            appliedMappingsRef.current = mappings;
-            setFieldMappings(mappings);
-            setShowMappedNames(true);
-            setShowMappedPreview(true);
-            return true;
+
+            // Solo marcar como aplicado si fue explícitamente aplicado
+            if (wasExplicitlyApplied) {
+              appliedMappingsRef.current = mappings;
+              setFieldMappings(mappings);
+              setShowMappedNames(true);
+              setShowMappedPreview(true);
+              console.log('✅ Preview mapeado activado (mapeo fue aplicado explícitamente)');
+            } else {
+              // Solo cargar los mapeos sin activar el preview mapeado
+              setFieldMappings(mappings);
+              console.log('⚠️ Mapeos cargados pero preview NO mapeado (falta aplicar mapeo)');
+            }
+            return wasExplicitlyApplied;
           }
         } catch (e) {
           console.error('❌ Error al parsear key:', key, e);
         }
       }
     }
-    
+
     console.log('ℹ️ No se encontraron mapeos');
     return false;
   };

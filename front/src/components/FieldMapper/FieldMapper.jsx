@@ -317,16 +317,25 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       
       if (result.success) {
         console.log(' Mapeo aplicado exitosamente');
+
+        // Marcar el mapeo como explícitamente aplicado en sessionStorage
+        try {
+          sessionStorage.setItem(`mappingApplied_${executionId}`, 'true');
+          console.log('✅ Guardado flag de mapeo aplicado en sessionStorage');
+        } catch (error) {
+          console.warn('Could not save mapping applied flag:', error);
+        }
+
         // Actualizar el backup con los nuevos mapeos aplicados
         if (fileType === 'libro_diario') {
-          setOriginalBackendMappings({ 
-            mappings: fieldMappings, 
-            confidences: fieldConfidences 
+          setOriginalBackendMappings({
+            mappings: fieldMappings,
+            confidences: fieldConfidences
           });
         } else {
           setOriginalBackendMappings(fieldMappings);
         }
-        
+
         if (onMappingChange) {
           onMappingChange(fieldMappings);
         }
