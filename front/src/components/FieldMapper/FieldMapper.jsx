@@ -17,9 +17,13 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const getStorageKey = (suffix) => `fieldmapper_${executionId}_${suffix}`;
 
   // Guardar mapeo en sessionStorage
-  const saveMappingToStorage = (mappings) => {
+  const saveMappingToStorage = (mappings, confidences = {}) => {
     try {
-      sessionStorage.setItem(getStorageKey('fieldMappings'), JSON.stringify(mappings));
+      const dataToSave = {
+        mappings: mappings,
+        confidences: confidences
+      };
+      sessionStorage.setItem(getStorageKey('fieldMappings'), JSON.stringify(dataToSave));
       sessionStorage.setItem(getStorageKey('timestamp'), Date.now().toString());
     } catch (error) {
       console.warn('Could not save field mappings to sessionStorage:', error);
@@ -31,15 +35,20 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     try {
       const savedMappings = sessionStorage.getItem(getStorageKey('fieldMappings'));
       const timestamp = sessionStorage.getItem(getStorageKey('timestamp'));
-      
+
       if (savedMappings && timestamp) {
         const timeDiff = Date.now() - parseInt(timestamp);
         const maxAge = 30 * 60 * 1000; // 30 minutos
-        
+
         if (timeDiff < maxAge) {
-          const parsedMappings = JSON.parse(savedMappings);
-          console.log('📦 Restaurando mapeo desde sessionStorage:', parsedMappings);
-          return parsedMappings;
+          const parsedData = JSON.parse(savedMappings);
+          console.log('📦 Restaurando mapeo desde sessionStorage:', parsedData);
+          // Soportar formato antiguo y nuevo
+          if (parsedData.mappings) {
+            return parsedData; // Formato nuevo con mappings y confidences
+          } else {
+            return { mappings: parsedData, confidences: {} }; // Formato antiguo
+          }
         }
       }
     } catch (error) {
@@ -107,9 +116,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
 
   useEffect(() => {
     if (Object.keys(fieldMappings).length > 0) {
-      saveMappingToStorage(fieldMappings);
+      saveMappingToStorage(fieldMappings, fieldConfidences);
     }
-  }, [fieldMappings]);
+  }, [fieldMappings, fieldConfidences]);
 
   // Función para cargar los datos del mapeo
   const loadMapeoData = async () => {
@@ -117,10 +126,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     
     setLoading(true);
     try {
-      const savedMappings = loadMappingFromStorage();
-      if (savedMappings && Object.keys(savedMappings).length > 0) {
+      const savedData = loadMappingFromStorage();
+      if (savedData && savedData.mappings && Object.keys(savedData.mappings).length > 0) {
         console.log('📦 Cargando mapeo desde sessionStorage');
-        setFieldMappings(savedMappings);
+        setFieldMappings(savedData.mappings);
+        setFieldConfidences(savedData.confidences || {});
         setLoading(false);
         return;
       }
@@ -586,21 +596,43 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                         </div>
                       </td>
                       <td className="px-3 py-1.5">
-                        <select
-                          value={mappedOriginalField || ''}
-                          onChange={(e) => handleMappingChange(e.target.value, databaseField)}
-                          className="block w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                        >
-                          <option value="">-- Seleccionar --</option>
-                          {originalFields.map((originalField) => (
-                            <option 
-                              key={originalField} 
-                              value={originalField}
+                        <div className="flex items-center space-x-2">
+                          <select
+                            value={mappedOriginalField || ''}
+                            onChange={(e) => handleMappingChange(e.target.value, databaseField)}
+                            className="block w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                          >
+                            <option value="">-- Seleccionar --</option>
+                            {originalFields.map((originalField) => {
+                              // Ocultar columnas ya mapeadas a otros campos, excepto la actual
+                              const isAlreadyMapped = Object.entries(fieldMappings).some(
+                                ([col, field]) => col === originalField && field !== databaseField
+                              );
+                              if (isAlreadyMapped && originalField !== mappedOriginalField) {
+                                return null;
+                              }
+                              return (
+                                <option
+                                  key={originalField}
+                                  value={originalField}
+                                >
+                                  {originalField}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {mappedOriginalField && (
+                            <button
+                              onClick={() => handleMappingChange(mappedOriginalField, '')}
+                              className="flex-shrink-0 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                              title="Quitar mapeo"
                             >
-                              {originalField}
-                            </option>
-                          ))}
-                        </select>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </td>
                       {fileType === 'libro_diario' && (
                         <td className="px-3 py-1.5 whitespace-nowrap">
