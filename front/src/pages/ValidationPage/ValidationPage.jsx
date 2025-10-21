@@ -25,6 +25,7 @@ const ValidationPage = () => {
 
   // Estado para controlar si el mapeo fue aplicado
   const [isMappingApplied, setIsMappingApplied] = useState(false);
+  const [isSumasSaldosMappingApplied, setIsSumasSaldosMappingApplied] = useState(false);
   
   // Estados del proceso paso a paso
   const [processState, setProcessState] = useState({
@@ -106,6 +107,12 @@ const ValidationPage = () => {
       const mappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}`);
       if (mappingAppliedStatus === 'true') {
         setIsMappingApplied(true);
+      }
+
+      // Cargar estado de mapeo aplicado para Sumas y Saldos
+      const ssMappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}-ss`);
+      if (ssMappingAppliedStatus === 'true') {
+        setIsSumasSaldosMappingApplied(true);
       }
     } catch (error) {
       console.warn('Could not load mapping applied status:', error);
@@ -499,7 +506,7 @@ const ValidationPage = () => {
             </button>
 
             {/* Contenido desplegable */}
-            {libroDiarioExpanded && (
+            {libroDiarioExpanded && executionData && (
             <div className="border-t border-gray-200 p-6 space-y-6">
               {/* Primero: Mapeo de columnas */}
               {shouldShowPreview() ? (
@@ -575,26 +582,28 @@ const ValidationPage = () => {
               {/* Contenido desplegable */}
               {sumasSaldosExpanded && (
                 <div className="border-t border-gray-200 p-6 space-y-6">
-                  
-                  {/* ✅ COMPONENTE DE VALIDACIONES PARA SUMAS Y SALDOS - PROPS CORREGIDOS */}
-                  <ValidationPhases 
-                    fileType="sumas_saldos" 
-                    executionId={sumasSaldosExecutionData?.execution_id}
-                    period={executionData?.period}  // Se pasa pero no se usa en sumas_saldos
-                    onComplete={() => {
-                      console.log('Validación de Sumas y Saldos completada');
-                    }}
-                  />
 
-                  {/* Preview del archivo con mapeo de Sumas y Saldos */}
-                  {processState.sumasSaldos.validated && sumasSaldosExecutionData?.execution_id && (
+                  {/* Primero: Mapeo de columnas para Sumas y Saldos */}
+                  {sumasSaldosExecutionData?.execution_id && (
                     <FilePreview
                       fileType="sumas_saldos"
                       executionId={sumasSaldosExecutionData.execution_id}
                       maxRows={10}
                       showMapperByDefault={true}
+                      onMappingApplied={(applied) => setIsSumasSaldosMappingApplied(applied)}
                     />
                   )}
+
+                  {/* Segundo: Validación para Sumas y Saldos */}
+                  <ValidationPhases
+                    fileType="sumas_saldos"
+                    executionId={sumasSaldosExecutionData?.execution_id}
+                    period={executionData?.period}
+                    isMappingApplied={isSumasSaldosMappingApplied}
+                    onComplete={() => {
+                      console.log('Validación de Sumas y Saldos completada');
+                    }}
+                  />
 
                   {/* Estado de error de validación */}
                   {processState.sumasSaldos.validationError && (
