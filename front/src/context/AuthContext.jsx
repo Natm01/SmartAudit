@@ -105,10 +105,16 @@ export const AuthProvider = ({ children }) => {
 
           if (apiResponse.ok) {
             const data = await apiResponse.json();
-            setUserContext({
+            // Asegurar que siempre tengamos el campo id
+            const mergedData = {
               ...parsed,
-              ...data, // ← mezclamos los datos del backend con los roles
-            });
+              ...data,
+            };
+            // Si el backend no retorna id, usar el que extrajimos del email
+            if (!mergedData.id && parsed.id) {
+              mergedData.id = parsed.id;
+            }
+            setUserContext(mergedData);
           } else {
             console.error('❌ Error en la respuesta del backend');
             setUserContext(parsed);
@@ -131,9 +137,13 @@ export const AuthProvider = ({ children }) => {
   // Parsear roles personalizados
   const parseUserRole = (roleValue, email) => {
     const parts = roleValue.split('.');
+    // Extraer el id del email (parte antes del @)
+    const id = email ? email.split('@')[0] : null;
+
     if (parts.length >= 5) {
       const [prefix, environment, type, tenantSlug, workspaceSlug] = parts;
       return {
+        id,
         email,
         environment,
         userType: type,
@@ -143,7 +153,8 @@ export const AuthProvider = ({ children }) => {
         isAdmin: type === 'admin'
       };
     }
-    return { 
+    return {
+      id,
       email, 
       error: 'Formato de role inválido', 
       rawRole: roleValue 
