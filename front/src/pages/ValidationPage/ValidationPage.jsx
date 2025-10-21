@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import Header from '../../components/Header/Header';
 import ValidationPhases from '../../components/ValidationPhases/ValidationPhases';
 import FilePreview from '../../components/FilePreview/FilePreview';
 import StatusModal from '../../components/StatusModal/StatusModal';
@@ -279,24 +278,6 @@ const ValidationPage = () => {
     }
   };
 
-  const handleUserChange = async (newUser) => {
-    try {
-      setUser(newUser);
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-purple-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 transform transition-all duration-300';
-      notification.innerHTML = `<div class="flex items-center space-x-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-        </svg><span>Cambiado a ${newUser.name}</span></div>`;
-      document.body.appendChild(notification);
-      setTimeout(() => {
-        notification.style.transform = 'translateX(100%)';
-        setTimeout(() => document.body.contains(notification) && document.body.removeChild(notification), 300);
-      }, 3000);
-    } catch (err) {
-      console.error('Error changing user:', err);
-    }
-  };
 
   const handleProceedToResults = () => {
     const canProceed = processState.step === 'completed' && 
@@ -364,7 +345,6 @@ const ValidationPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header user={user} onUserChange={handleUserChange} showUserSelector={true} />
         <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-purple-600"></div>
@@ -378,7 +358,6 @@ const ValidationPage = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header user={user} onUserChange={handleUserChange} showUserSelector={true} />
         <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center py-12">
             <div className="max-w-md w-full bg-white rounded-xl shadow-sm p-8 text-center border border-red-100">
