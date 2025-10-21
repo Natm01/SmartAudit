@@ -26,10 +26,9 @@ function AppContent() {
   const [allProjects, setAllProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
 
-  // Cargar proyectos SOLO cuando tengamos el usuario
+  // Cargar proyectos
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!userContext) return; // Espera al usuario
       try {
         const response = await projectService.getAllProjects();
         setAllProjects(response.projects || response || []);
@@ -42,23 +41,9 @@ function AppContent() {
     };
 
     fetchProjects();
-  }, [userContext]); // se ejecuta cuando userContext cambia
+  }, []);
 
-  // Filtrar proyectos por usuario
-  const filteredProjects = React.useMemo(() => {
-    if (!userContext || !userContext.id) return [];
-
-    // Normalizamos para evitar problemas de espacios o mayúsculas/minúsculas
-    const userId = userContext.id.trim().toLowerCase();
-
-    return allProjects.filter(
-      (project) => project.idUser?.trim().toLowerCase() === userId
-    );
-  }, [allProjects, userContext]);
-
-  console.log('Usuario actual:', userContext?.id);
   console.log('Total proyectos:', allProjects.length);
-  console.log('Proyectos filtrados:', filteredProjects.length);
 
   return (
     <Router>
@@ -73,7 +58,7 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <ImportPage
-                filteredProjects={filteredProjects}
+                filteredProjects={allProjects}
                 loadingProjects={loadingProjects}
                 currentUserId={userContext?.id}
               />
