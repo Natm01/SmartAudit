@@ -1,0 +1,103 @@
+{
+  "trial_balance": {
+    "table": "trial_balance",
+    "fields": [
+      {
+        "name": "gl_account_number",
+        "label": "Número de cuenta contable",
+        "type": "nvarchar(25)",
+        "required": true,
+        "order": 1,
+        "visible": true
+      },
+      {
+        "name": "period_beginning_balance",
+        "label": "Saldo inicial del periodo",
+        "type": "decimal(28,2)",
+        "required": true,
+        "order": 2,
+        "visible": true
+      },
+          {
+        "name": "period_ending_balance",
+        "label": "Saldo final del periodo",
+        "type": "decimal(28,2)",
+        "required": true,
+        "order": 3,
+        "visible": true
+      },
+      {
+        "name": "business_unit",
+        "label": "Unidad de negocio",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 4,
+        "visible": false
+      },
+      {
+        "name": "cost_center",
+        "label": "Centro de costos",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 5,
+        "visible": false
+      },
+      {
+        "name": "department",
+        "label": "Departamento",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 6,
+        "visible": false
+      },
+      {
+        "name": "period_activity_credit",
+        "label": "Haber del periodo",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 7,
+        "visible": false
+      },
+      {
+        "name": "period_activity_debit",
+        "label": "Debe del periodo",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 8,
+        "visible": false
+      },
+      {
+        "name": "reporting_account",
+        "label": "Cuenta de reporte",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 10,
+        "visible": false
+      },
+      {
+        "name": "user_defined_01",
+        "label": "Campo definido por usuario 1",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 11,
+        "visible": false
+      },
+      {
+        "name": "user_defined_02",
+        "label": "Campo definido por usuario 2",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 12,
+        "visible": false
+      },
+      {
+        "name": "user_defined_03",
+        "label": "Campo definido por usuario 3",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 13,
+        "visible": false
+      }
+    ]
+  }
+}

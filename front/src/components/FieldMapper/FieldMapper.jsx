@@ -1,0 +1,666 @@
+// frontend/src/components/FieldMapper/FieldMapper.jsx 
+import React, { useState, useEffect } from 'react';
+import importService from '../../services/importService';
+// Importar los JSONs de campos
+import journalEntriesMapping from '../../config/journal_entries_table_mapping.json';
+import trialBalanceMapping from '../../config/trial_balance_table_mapping.json';
+
+const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileType = 'libro_diario', executionId }) => {
+  const [fieldMappings, setFieldMappings] = useState({});
+  const [fieldConfidences, setFieldConfidences] = useState({});
+  const [originalBackendMappings, setOriginalBackendMappings] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [mapeoData, setMapeoData] = useState(null);
+
+  // Claves para sessionStorage
+  const getStorageKey = (suffix) => `fieldmapper_${executionId}_${suffix}`;
+
+  // Guardar mapeo en sessionStorage
+  const saveMappingToStorage = (mappings) => {
+    try {
+      sessionStorage.setItem(getStorageKey('fieldMappings'), JSON.stringify(mappings));
+      sessionStorage.setItem(getStorageKey('timestamp'), Date.now().toString());
+    } catch (error) {
+      console.warn('Could not save field mappings to sessionStorage:', error);
+    }
+  };
+
+  // Cargar mapeo desde sessionStorage
+  const loadMappingFromStorage = () => {
+    try {
+      const savedMappings = sessionStorage.getItem(getStorageKey('fieldMappings'));
+      const timestamp = sessionStorage.getItem(getStorageKey('timestamp'));
+      
+      if (savedMappings && timestamp) {
+        const timeDiff = Date.now() - parseInt(timestamp);
+        const maxAge = 30 * 60 * 1000; // 30 minutos
+        
+        if (timeDiff < maxAge) {
+          const parsedMappings = JSON.parse(savedMappings);
+          console.log('📦 Restaurando mapeo desde sessionStorage:', parsedMappings);
+          return parsedMappings;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not load field mappings from sessionStorage:', error);
+    }
+    return null;
+  };
+
+  // Cargar campos desde JSON según el tipo de archivo
+  const getDatabaseFieldsFromJSON = () => {
+    if (fileType === 'sumas_saldos') {
+      const fields = {};
+      trialBalanceMapping.trial_balance.fields.forEach(field => {
+        fields[field.name] = {
+          label: field.label,
+          required: field.required,
+          description: `${field.label} (${field.type})`,
+          fileTypes: ['sumas_saldos'],
+          table: 'trial_balance',
+          visible: field.visible !== undefined ? field.visible : true,
+          order: field.order
+        };
+      });
+      return fields;
+    } else {
+      const fields = {};
+      
+      journalEntriesMapping.journal_entries.header_fields.forEach(field => {
+        fields[field.name] = {
+          label: field.label,
+          required: field.required,
+          description: `${field.label} (${field.type})`,
+          fileTypes: ['libro_diario'],
+          table: 'journal_entries',
+          structure: 'header',
+          visible: field.visible !== undefined ? field.visible : true,
+          order: field.order
+        };
+      });
+      
+      journalEntriesMapping.journal_entries.detail_fields.forEach(field => {
+        fields[field.name] = {
+          label: field.label,
+          required: field.required,
+          description: `${field.label} (${field.type})`,
+          fileTypes: ['libro_diario'],
+          table: 'journal_entry_lines',
+          structure: 'detail',
+          visible: field.visible !== undefined ? field.visible : true,
+          order: field.order
+        };
+      });
+      
+      return fields;
+    }
+  };
+
+  const databaseFields = getDatabaseFieldsFromJSON();
+
+  useEffect(() => {
+    if (isOpen && executionId && originalFields && originalFields.length > 0) {
+      loadMapeoData();
+    }
+  }, [isOpen, executionId, originalFields]);
+
+  useEffect(() => {
+    if (Object.keys(fieldMappings).length > 0) {
+      saveMappingToStorage(fieldMappings);
+    }
+  }, [fieldMappings]);
+
+  // Función para cargar los datos del mapeo
+  const loadMapeoData = async () => {
+    if (!executionId) return;
+    
+    setLoading(true);
+    try {
+      const savedMappings = loadMappingFromStorage();
+      if (savedMappings && Object.keys(savedMappings).length > 0) {
+        console.log('📦 Cargando mapeo desde sessionStorage');
+        setFieldMappings(savedMappings);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`🔍 Obteniendo mapeo desde el backend (${fileType})...`);
+      
+      if (fileType === 'sumas_saldos') {
+        const statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
+        
+        if (statusResult.success && statusResult.data.mapping) {
+          console.log('Mapeo de Sumas y Saldos encontrado:', statusResult.data.mapping);
+          
+          const backendMapping = statusResult.data.mapping || {};
+          const frontendMappings = {};
+          
+          Object.entries(backendMapping).forEach(([bdField, excelColumn]) => {
+            if (excelColumn) {
+              frontendMappings[excelColumn] = bdField;
+            }
+          });
+          
+          setFieldMappings(frontendMappings);
+          setOriginalBackendMappings(frontendMappings);
+        } else {
+          console.log('🆕 Sumas y Saldos sin mapeo previo, iniciando desde cero');
+        }
+        
+      } else {
+        const fieldsResult = await importService.getFieldsMapping(executionId);
+        
+        if (fieldsResult.success) {
+          console.log('Respuesta del backend:', fieldsResult.data);
+          setMapeoData(fieldsResult.data);
+          
+          const backendMappings = fieldsResult.data.mapped_fields || {};
+          const frontendMappings = {};
+          const confidences = {};
+          
+          Object.entries(backendMappings).forEach(([standardField, mapping]) => {
+            if (mapping.mapped_column) {
+              frontendMappings[mapping.mapped_column] = standardField;
+              
+              if (mapping.confidence !== undefined) {
+                confidences[mapping.mapped_column] = mapping.confidence;
+              }
+              
+              console.log(`Mapeando: "${mapping.mapped_column}" -> "${standardField}"${
+                mapping.confidence !== undefined ? ` (confidence: ${mapping.confidence})` : ''
+              }`);
+            }
+          });
+          
+          console.log('📋 Mapeo final del frontend:', frontendMappings);
+          console.log('🎯 Confidences capturadas:', confidences);
+          
+          setFieldMappings(frontendMappings);
+          setFieldConfidences(confidences);
+          setOriginalBackendMappings({ mappings: frontendMappings, confidences });
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error al cargar mapeo:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  //  FUNCIÓN CORREGIDA: Permite re-mapear columnas
+  const handleMappingChange = (originalField, targetField) => {
+    // PASO 1: Crear copia del estado actual
+    const newMappings = { ...fieldMappings };
+    
+    // PASO 2: Si el targetField ya estaba mapeado a otro originalField, 
+    // eliminamos ese mapeo anterior
+    if (targetField) {
+      // Buscar si targetField ya estaba asignado a otra columna
+      const previousMapping = Object.entries(fieldMappings).find(
+        ([key, value]) => value === targetField && key !== originalField
+      );
+      
+      // Si existía un mapeo anterior diferente, lo eliminamos
+      if (previousMapping) {
+        delete newMappings[previousMapping[0]];
+        console.log(`🔄 Removiendo mapeo anterior: ${previousMapping[0]} -> ${targetField}`);
+      }
+    }
+    
+    // PASO 3: Aplicar el nuevo mapeo (o eliminar si targetField está vacío)
+    if (targetField) {
+      newMappings[originalField] = targetField;
+      console.log(` Nuevo mapeo: ${originalField} -> ${targetField}`);
+    } else {
+      // Si targetField está vacío, eliminar el mapeo
+      delete newMappings[originalField];
+      console.log(`🗑️ Mapeo eliminado: ${originalField}`);
+    }
+    
+    setFieldMappings(newMappings);
+  };
+
+  const handleApplyMappings = async () => {
+    if (!executionId) {
+      if (onMappingChange) {
+        onMappingChange(fieldMappings);
+      }
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const mappings = [];
+      const changedMappings = [];
+
+      //  SOLUCIÓN: Marcar con force_override=true CUALQUIER campo que ya estaba mapeado
+      // Obtener lista de todos los campos que están actualmente mapeados en el backend
+      const backendMappedFields = new Set();
+      if (fileType === 'libro_diario' && originalBackendMappings?.mappings) {
+        Object.values(originalBackendMappings.mappings).forEach(field => {
+          if (field) backendMappedFields.add(field);
+        });
+      } else if (originalBackendMappings) {
+        Object.values(originalBackendMappings).forEach(field => {
+          if (field) backendMappedFields.add(field);
+        });
+      }
+
+      console.log('🔍 Campos ya mapeados en backend:', Array.from(backendMappedFields));
+
+      Object.entries(fieldMappings).forEach(([sourceColumn, standardField]) => {
+        if (standardField) {
+          // Verificar si este mapeo cambió respecto al original del backend
+          const originalMapping = fileType === 'libro_diario' 
+            ? originalBackendMappings?.mappings?.[sourceColumn]
+            : originalBackendMappings?.[sourceColumn];
+          
+          const hasChanged = originalMapping !== standardField;
+          
+          //  CRÍTICO: Si el campo de destino YA estaba mapeado en el backend, 
+          // usar force_override=true para permitir re-asignarlo
+          const wasAlreadyMapped = backendMappedFields.has(standardField);
+          
+          const mappingObj = {
+            column_name: sourceColumn,
+            selected_field: standardField,
+            force_override: wasAlreadyMapped  //  True si el campo ya existía en cualquier mapeo
+          };
+          
+          if (fileType === 'libro_diario' && fieldConfidences[sourceColumn] !== undefined) {
+            mappingObj.confidence = fieldConfidences[sourceColumn];
+          } else if (fileType === 'libro_diario') {
+            mappingObj.confidence = 1.0; // Mapeo manual = 100% confianza
+          }
+          
+          mappings.push(mappingObj);
+          
+          if (hasChanged) {
+            changedMappings.push(`${sourceColumn} -> ${standardField} (override=${wasAlreadyMapped})`);
+          }
+        }
+      });
+
+      if (mappings.length === 0) {
+        console.log('No hay mapeos para enviar al backend');
+        if (onMappingChange) {
+          onMappingChange(fieldMappings);
+        }
+        setLoading(false);
+        return;
+      }
+
+      console.log(`📤 Enviando ${mappings.length} mapeos totales al backend (${changedMappings.length} cambios):`);
+      if (changedMappings.length > 0) {
+        console.log('🔄 Cambios detectados:', changedMappings);
+      }
+
+      let result;
+      
+      if (fileType === 'sumas_saldos') {
+        result = await importService.applySumasSaldosManualMapping(executionId, mappings);
+      } else {
+        result = await importService.applyManualMapping(executionId, mappings);
+      }
+      
+      if (result.success) {
+        console.log(' Mapeo aplicado exitosamente');
+        // Actualizar el backup con los nuevos mapeos aplicados
+        if (fileType === 'libro_diario') {
+          setOriginalBackendMappings({ 
+            mappings: fieldMappings, 
+            confidences: fieldConfidences 
+          });
+        } else {
+          setOriginalBackendMappings(fieldMappings);
+        }
+        
+        if (onMappingChange) {
+          onMappingChange(fieldMappings);
+        }
+      } else {
+        console.error('❌ Error al aplicar mapeo:', result.error);
+        alert('Error al aplicar el mapeo:\n\n' + (result.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('❌ Error applying mappings:', error);
+      
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Error desconocido';
+      alert('Error al aplicar el mapeo:\n\n' + errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMappedCount = () => {
+    return Object.values(fieldMappings).filter(v => v).length;
+  };
+
+  const getRequiredMappedCount = () => {
+    const requiredFields = Object.entries(databaseFields)
+      .filter(([_, info]) => info.required && (!info.fileTypes || info.fileTypes.includes(fileType)));
+    
+    const mappedRequired = requiredFields.filter(([field]) => 
+      Object.values(fieldMappings).includes(field)
+    ).length;
+
+    return {
+      mapped: mappedRequired,
+      total: requiredFields.length
+    };
+  };
+
+  const isFieldMapped = (databaseField) => {
+    return Object.values(fieldMappings).includes(databaseField);
+  };
+
+  const getFilteredDatabaseFields = () => {
+    return Object.entries(databaseFields).filter(([field, fieldInfo]) => {
+      if (fieldInfo.fileTypes && !fieldInfo.fileTypes.includes(fileType)) {
+        return false;
+      }
+
+      if (fieldInfo.visible === false && !isFieldMapped(field)) {
+        console.log(`Ocultando campo no mapeado: ${field}`);
+        return false;
+      }
+      
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        return field.toLowerCase().includes(searchLower) ||
+              fieldInfo.label.toLowerCase().includes(searchLower) ||
+              fieldInfo.description.toLowerCase().includes(searchLower);
+      }
+      
+      return true;
+    }).sort((a, b) => {
+      const [fieldA, infoA] = a;
+      const [fieldB, infoB] = b;
+      
+      // PASO 1: Ordenar por si está mapeado (mapeados primero)
+      const isMappedA = isFieldMapped(fieldA);
+      const isMappedB = isFieldMapped(fieldB);
+      
+      if (isMappedA && !isMappedB) return -1;
+      if (!isMappedA && isMappedB) return 1;
+      
+      // PASO 2: Si ambos están mapeados O ambos NO están mapeados, ordenar por 'order'
+      if (infoA.order !== undefined && infoB.order !== undefined) {
+        return infoA.order - infoB.order;
+      }
+      
+      if (infoA.order !== undefined && infoB.order === undefined) return -1;
+      if (infoA.order === undefined && infoB.order !== undefined) return 1;
+      
+      // PASO 3: Si no tienen 'order', ordenar por requerido
+      if (infoA.required && !infoB.required) return -1;
+      if (!infoA.required && infoB.required) return 1;
+      
+      // PASO 4: Si todo lo anterior es igual, ordenar alfabéticamente
+      return fieldA.localeCompare(fieldB);
+    });
+  };
+
+  const getVisibleDatabaseFieldsCount = () => {
+    return getFilteredDatabaseFields().length;
+  };
+
+  const getConfidenceColor = (confidence) => {
+    if (confidence >= 0.9) return 'bg-green-100 text-green-800';
+    if (confidence >= 0.7) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-orange-100 text-orange-800';
+  };
+
+  const getFileTypeTitle = () => {
+    return fileType === 'libro_diario' 
+      ? 'Mapeo de Campos - Libro Diario'
+      : 'Mapeo de Campos - Sumas y Saldos';
+  };
+
+  const handleRestoreBackendMapping = () => {
+    if (!originalBackendMappings || Object.keys(originalBackendMappings).length === 0) {
+      alert('No hay mapeo automático del backend disponible para restaurar');
+      return;
+    }
+
+    if (fileType === 'libro_diario' && originalBackendMappings.mappings) {
+      setFieldMappings(originalBackendMappings.mappings);
+      setFieldConfidences(originalBackendMappings.confidences || {});
+      
+      const withConfidence = Object.keys(originalBackendMappings.confidences || {}).length;
+      console.log(
+        ` Restaurados ${Object.keys(originalBackendMappings.mappings).length} mapeos del backend` +
+        (withConfidence > 0 ? ` (${withConfidence} con nivel de confianza)` : '')
+      );
+    } else {
+      setFieldMappings(originalBackendMappings);
+      console.log(` Restaurados ${Object.keys(originalBackendMappings).length} mapeos del backend`);
+    }
+  };
+
+  if (!originalFields || originalFields.length === 0) {
+    return null;
+  }
+
+  const requiredStats = getRequiredMappedCount();
+  const filteredDatabaseFields = getFilteredDatabaseFields();
+  const visibleFieldsCount = getVisibleDatabaseFieldsCount();
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div 
+        className="px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={onToggle}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-base font-semibold text-gray-900">
+                {getFileTypeTitle()}
+              </h3>
+              
+              <div className="flex items-center space-x-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {getMappedCount()}/{visibleFieldsCount} mapeados
+                </span>
+                {fileType === 'libro_diario' && (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    requiredStats.mapped === requiredStats.total 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {requiredStats.mapped}/{requiredStats.total} obligatorios
+                  </span>
+                )}
+                {loading && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <svg className="animate-spin w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Procesando
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 ml-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleApplyMappings();
+              }}
+              disabled={loading}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Aplicando...' : 'Aplicar Mapeo'}
+            </button>
+            
+            <svg 
+              className={`w-5 h-5 text-gray-400 transform transition-transform ${
+                isOpen ? 'rotate-180' : ''
+              }`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido del mapeo */}
+      {isOpen && (
+        <div className="px-4 py-3">
+          {/* Buscador */}
+          <div className="mb-3">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md leading-4 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-xs"
+                placeholder="Buscar campos de base de datos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Tabla de mapeo */}
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Campo BD (Destino)
+                  </th>
+                  <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Campo Origen
+                  </th>
+                  {fileType === 'libro_diario' && (
+                    <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Confianza
+                    </th>
+                  )}
+                  <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Oblig.
+                  </th>
+                  <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Descripción
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredDatabaseFields.map(([databaseField, fieldInfo]) => {
+                  const mappedOriginalField = Object.entries(fieldMappings)
+                    .find(([_, mappedField]) => mappedField === databaseField)?.[0] || '';
+                  
+                  const isMapped = isFieldMapped(databaseField);
+                  
+                  return (
+                    <tr 
+                      key={databaseField} 
+                      className={`
+                        ${isMapped ? 'bg-gray-50' : 'bg-white'} 
+                        hover:bg-gray-100 
+                        transition-colors
+                      `}
+                    >
+                      <td className="px-3 py-1.5 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div className="flex items-center space-x-2">
+                          {isMapped && (
+                            <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          <span>{databaseField}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <select
+                          value={mappedOriginalField || ''}
+                          onChange={(e) => handleMappingChange(e.target.value, databaseField)}
+                          className="block w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">-- Seleccionar --</option>
+                          {originalFields.map((originalField) => (
+                            <option 
+                              key={originalField} 
+                              value={originalField}
+                            >
+                              {originalField}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      {fileType === 'libro_diario' && (
+                        <td className="px-3 py-1.5 whitespace-nowrap">
+                          {mappedOriginalField && fieldConfidences[mappedOriginalField] !== undefined && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getConfidenceColor(fieldConfidences[mappedOriginalField])}`}>
+                              {Math.round(fieldConfidences[mappedOriginalField] * 100)}%
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-3 py-1.5 whitespace-nowrap">
+                        {fieldInfo.required && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Sí
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <div className="text-xs text-gray-500 max-w-xs truncate" title={fieldInfo.description}>
+                          {fieldInfo.description}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="mt-3">
+            <div className="mt-3 flex justify-end">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    setFieldMappings({});
+                    setFieldConfidences({});
+                    console.log('🧹 Mapeos limpiados (el backup del backend se mantiene)');
+                  }}
+                  disabled={loading}
+                  className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+                >
+                  Limpiar
+                </button>
+                
+                <button
+                  onClick={handleRestoreBackendMapping}
+                  disabled={loading || !originalBackendMappings || Object.keys(originalBackendMappings).length === 0}
+                  className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+                  title={!originalBackendMappings || Object.keys(originalBackendMappings).length === 0 ? 'No hay mapeo del backend disponible' : 'Restaurar mapeo automático del backend'}
+                >
+                  Auto mapeo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FieldMapper;

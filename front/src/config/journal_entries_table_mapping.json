@@ -1,0 +1,413 @@
+{
+  "journal_entries": {
+    "table": "journal_entries",
+    "header_fields": [
+      {
+        "name": "journal_entry_id",
+        "label": "ID único del asiento contable",
+        "type": "nvarchar(25)",
+        "required": true,
+        "order": 1,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "posting_date",
+        "label": "Fecha contable del asiento",
+        "type": "date",
+        "required": true,
+        "order": 2,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "entry_date",
+        "label": "Fecha de registro del asiento",
+        "type": "date",
+        "required": false,
+        "order": 3,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "entry_time",
+        "label": "Hora de entrada",
+        "type": "time(0)",
+        "required": false,
+        "order": 4,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "entry_type",
+        "label": "Tipo de entrada",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 5,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "fiscal_year",
+        "label": "Año fiscal",
+        "type": "int",
+        "required": false,
+        "order": 6,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "journal_id",
+        "label": "Identificador del diario",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 7,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "line_count",
+        "label": "Número de líneas",
+        "type": "int",
+        "required": false,
+        "order": 8,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "description",
+        "label": "Descripción del asiento",
+        "type": "nvarchar(500)",
+        "required": false,
+        "order": 9,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "period_number",
+        "label": "Número de periodo",
+        "type": "int",
+        "required": false,
+        "order": 10,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "prepared_by",
+        "label": "Preparado por",
+        "type": "nvarchar(100)",
+        "required": false,
+        "order": 11,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "manual_entry",
+        "label": "Entrada manual",
+        "type": "bit",
+        "required": false,
+        "order": 12,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "recurring_entry",
+        "label": "Entrada recurrente",
+        "type": "bit",
+        "required": false,
+        "order": 13,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "reference_number",
+        "label": "Número de referencia",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 14,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "reversal_date",
+        "label": "Fecha de reversión",
+        "type": "date",
+        "required": false,
+        "order": 15,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "source",
+        "label": "Origen del asiento",
+        "type": "nvarchar(100)",
+        "required": false,
+        "order": 16,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "total_credit_amount",
+        "label": "Total crédito",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 17,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "total_debit_amount",
+        "label": "Total débito",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 18,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "entry_status",
+        "label": "Estado del asiento",
+        "type": "nvarchar(20)",
+        "required": false,
+        "order": 19,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "effective_date",
+        "label": "Fecha efectiva",
+        "type": "date",
+        "required": false,
+        "order": 20,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "document_number",
+        "label": "Número de documento",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 21,
+        "visible": true,
+        "structure": "header"
+      },
+      {
+        "name": "adjustment_entry",
+        "label": "Entrada de ajuste",
+        "type": "bit",
+        "required": false,
+        "order": 22,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "approval_date",
+        "label": "Fecha de aprobación",
+        "type": "date",
+        "required": false,
+        "order": 23,
+        "visible": false,
+        "structure": "header"
+      },
+      {
+        "name": "approved_by",
+        "label": "Aprobado por",
+        "type": "nvarchar(100)",
+        "required": false,
+        "order": 24,
+        "visible": false,
+        "structure": "header"
+      }
+    ],
+    "detail_fields": [
+      {
+        "name": "line_number",
+        "label": "Número de línea dentro del asiento",
+        "type": "int",
+        "required": false,
+        "order": 25,
+        "visible": true,
+        "structure": "detail"
+      },
+      {
+        "name": "gl_account_number",
+        "label": "Número de cuenta contable",
+        "type": "nvarchar(25)",
+        "required": true,
+        "order": 26,
+        "visible": true,
+        "structure": "detail"
+      },
+      {
+        "name": "line_description",
+        "label": "Descripción de la línea",
+        "type": "nvarchar(255)",
+        "required": false,
+        "order": 27,
+        "visible": true,
+        "structure": "detail"
+      },      {
+        "name": "debit_credit_indicator",
+        "label": "Indicador D/C",
+        "type": "char(1)",
+        "required": false,
+        "order": 28,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "amount",
+        "label": "Importe de la línea",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 29,
+        "visible": false,
+        "structure": "detail"
+      },
+     {
+        "name": "debit_amount",
+        "label": "Debe",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 30,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "credit_amount",
+        "label": "Haber",
+        "type": "decimal(28,2)",
+        "required": false,
+        "order": 31,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "customer_id",
+        "label": "ID del cliente",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 32,
+        "visible": true,
+        "structure": "detail"
+      },
+      {
+        "name": "business_category",
+        "label": "Categoría de negocio",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 33,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "business_unit",
+        "label": "Unidad de negocio",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 34,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "cost_center",
+        "label": "Centro de costos",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 35,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "department",
+        "label": "Departamento",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 36,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "location",
+        "label": "Ubicación",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 37,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "product_id",
+        "label": "ID del producto",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 38,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "project_code",
+        "label": "Código de proyecto",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 39,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "reporting_account",
+        "label": "Cuenta de reporte",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 40,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "user_defined_01",
+        "label": "Campo definido por usuario 1",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 41,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "account_combination",
+        "label": "Combinación de cuentas",
+        "type": "nvarchar(500)",
+        "required": false,
+        "order": 42,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "user_defined_02",
+        "label": "Campo definido por usuario 2",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 43,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "user_defined_03",
+        "label": "Campo definido por usuario 3",
+        "type": "nvarchar(50)",
+        "required": false,
+        "order": 44,
+        "visible": false,
+        "structure": "detail"
+      },
+      {
+        "name": "vendor_id",
+        "label": "ID del proveedor",
+        "type": "nvarchar(25)",
+        "required": false,
+        "order": 45,
+        "visible": false,
+        "structure": "detail"
+      }
+    ]
+  }
+}
