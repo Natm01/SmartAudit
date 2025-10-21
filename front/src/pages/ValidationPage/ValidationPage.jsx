@@ -1,11 +1,11 @@
 // frontend/src/pages/ValidationPage/ValidationPage.jsx - Con secciones desplegables
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import ValidationPhases from '../../components/ValidationPhases/ValidationPhases';
 import FilePreview from '../../components/FilePreview/FilePreview';
 import StatusModal from '../../components/StatusModal/StatusModal';
-import userService from '../../services/userService';
 import importService from '../../services/importService';
 import projectService from '../../services/projectService';
 
@@ -15,7 +15,6 @@ const ValidationPage = () => {
   const processStartedRef = useRef(false);
   
   // Estados principales
-  const [user, setUser] = useState(null);
   const [executionData, setExecutionData] = useState(null);
   const [sumasSaldosExecutionData, setSumasSaldosExecutionData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -120,15 +119,6 @@ const ValidationPage = () => {
       }
       
       console.log(' Cargando datos para execution:', executionId);
-      
-      try {
-        const userResponse = await userService.getCurrentUser();
-        if (userResponse.success && userResponse.user) {
-          setUser(userResponse.user);
-        }
-      } catch (err) {
-        console.warn('Error loading user:', err);
-      }
 
       const savedState = loadStateFromStorage();
       

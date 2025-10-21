@@ -10,7 +10,6 @@ import ThoughtSpotPage from './pages/ThoughtSpotPage/ThoughtSpotPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MsalProvider } from '@azure/msal-react';
 import { PublicClientApplication } from '@azure/msal-browser';
-import userService from './services/userService';
 import projectService from './services/projectService';
 
 function ProtectedRoute({children}) {
@@ -22,32 +21,15 @@ function ProtectedRoute({children}) {
   return children;
 }
 
-function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+function AppContent() {
+  const { userContext } = useAuth();
   const [allProjects, setAllProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
-
-  // Cargar usuario actual
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      try {
-        const response = await userService.getCurrentUser();
-        if (response.success && response.user) {
-          setCurrentUser(response.user);
-          console.log('Usuario actual:', response.user);
-        }
-      } catch (error) {
-        console.error('Error cargando usuario actual:', error);
-      }
-    };
-
-    loadCurrentUser();
-  }, []);
 
   // Cargar proyectos SOLO cuando tengamos el usuario
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!currentUser) return; // 👈 Espera al usuario
+      if (!userContext) return; // Espera al usuario
       try {
         const response = await projectService.getAllProjects();
         setAllProjects(response.projects || response || []);
@@ -60,56 +42,62 @@ function App() {
     };
 
     fetchProjects();
-  }, [currentUser]); // se ejecuta cuando currentUser cambia
+  }, [userContext]); // se ejecuta cuando userContext cambia
 
   // Filtrar proyectos por usuario
   const filteredProjects = React.useMemo(() => {
-    if (!currentUser || !currentUser.id) return [];
+    if (!userContext || !userContext.id) return [];
 
     // Normalizamos para evitar problemas de espacios o mayúsculas/minúsculas
-    const userId = currentUser.id.trim().toLowerCase();
+    const userId = userContext.id.trim().toLowerCase();
 
     return allProjects.filter(
       (project) => project.idUser?.trim().toLowerCase() === userId
     );
-  }, [allProjects, currentUser]);
+  }, [allProjects, userContext]);
 
-  console.log('Usuario actual:', currentUser?.id);
+  console.log('Usuario actual:', userContext?.id);
   console.log('Total proyectos:', allProjects.length);
   console.log('Proyectos filtrados:', filteredProjects.length);
 
   return (
+    <Router>
+      <Header user={userContext} />
+      <Routes>
+        {/* Página principal */}
+        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+
+        {/* Rutas del módulo de Importación de Libro Diario */}
+        <Route
+          path="/libro-diario"
+          element={
+            <ProtectedRoute>
+              <ImportPage
+                filteredProjects={filteredProjects}
+                loadingProjects={loadingProjects}
+                currentUserId={userContext?.id}
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/libro-diario/validation/:executionId" element={<ProtectedRoute><ValidationPage /></ProtectedRoute>} />
+        <Route path="/libro-diario/results/:executionId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
+
+        {/* Ruta para ThoughtSpot */}
+        <Route path="/thoughtspot" element={<ProtectedRoute><ThoughtSpotPage /></ProtectedRoute>} />
+
+        {/* Redirección para rutas no encontradas */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
+  );
+}
+
+function App() {
+  return (
     <AuthProvider>
-      <Router>
-        <Header user={currentUser} onUserChange={setCurrentUser} />
-        <Routes>
-          {/* Página principal */}
-          <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />            
-                
-          {/* Rutas del módulo de Importación de Libro Diario */}
-          <Route 
-            path="/libro-diario" 
-            element={
-              <ProtectedRoute>
-                <ImportPage 
-                  filteredProjects={filteredProjects}
-                  loadingProjects={loadingProjects}
-                  currentUserId={currentUser?.id}
-                />
-              </ProtectedRoute>
-            } 
-          />
-            
-          <Route path="/libro-diario/validation/:executionId" element={<ProtectedRoute><ValidationPage /></ProtectedRoute>} />
-          <Route path="/libro-diario/results/:executionId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
-          
-          {/* Ruta para ThoughtSpot */}
-          <Route path="/thoughtspot" element={<ProtectedRoute><ThoughtSpotPage /></ProtectedRoute>} />
-          
-          {/* Redirección para rutas no encontradas */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+      <AppContent />
     </AuthProvider>
   );
 }

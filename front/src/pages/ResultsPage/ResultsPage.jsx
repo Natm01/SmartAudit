@@ -1,15 +1,14 @@
 // frontend/src/pages/ResultsPage/ResultsPage.jsx
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../../components/Header/Header';
-import userService from '../../services/userService';
 import importService from '../../services/importService';
 
 const ResultsPage = () => {
   const { executionId } = useParams();
   const navigate = useNavigate();
   
-  const [user, setUser] = useState(null);
   const [conversionData, setConversionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -23,10 +22,6 @@ const ResultsPage = () => {
       setLoading(true);
       
       // Cargar usuario
-      const userResponse = await userService.getCurrentUser();
-      if (userResponse.success && userResponse.user) {
-        setUser(userResponse.user);
-      }
       
       // Simular datos de conversión (ya que los archivos están convertidos)
       // En una implementación real, esto vendría del backend
