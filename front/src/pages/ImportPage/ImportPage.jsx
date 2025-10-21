@@ -4,13 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import ImportForm from '../../components/ImportForm/ImportForm';
 import ImportHistory from '../../components/ImportHistory/ImportHistory';
 import StatusModal from '../../components/StatusModal/StatusModal';
-import userService from '../../services/userService';
 import projectService from '../../services/projectService';
 import importService from '../../services/importService';
 
 const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [importHistory, setImportHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,9 +58,6 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
     setLoading(true);
     setError(null);
     try {
-      const userResponse = await userService.getCurrentUser();
-      if (userResponse.success && userResponse.user) setUser(userResponse.user);
-
       const historyResponse = await importService.getImportHistory();
       if (historyResponse.success) setImportHistory(historyResponse.executions);
     } catch (err) {

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LiveboardEmbed } from '@thoughtspot/visual-embed-sdk/react';
 import { init, AuthType, prefetch } from '@thoughtspot/visual-embed-sdk';
 import Header from '../../components/Header/Header';
-import userService from '../../services/userService';
 
 const ThoughtSpotPage = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [thoughtSpotInitialized, setThoughtSpotInitialized] = useState(false);
@@ -63,10 +62,6 @@ const ThoughtSpotPage = () => {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const userResponse = await userService.getCurrentUser();
-      if (userResponse.success && userResponse.user) {
-        setUser(userResponse.user);
-      }
     } catch (err) {
       console.error('Error loading initial data:', err);
       setError('Error al cargar la información inicial');

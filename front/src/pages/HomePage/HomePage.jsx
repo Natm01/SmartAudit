@@ -1,14 +1,13 @@
-// frontend/src/pages/HomePage/HomePage.jsx - Sin lógica de permisos
+// frontend/src/pages/HomePage/HomePage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../../components/Header/Header';
+import { useAuth } from '../../context/AuthContext';
 import ApplicationCard from '../../components/ApplicationCard/ApplicationCard';
-import userService from '../../services/userService';
 import applicationService from '../../services/applicationService';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { userContext } = useAuth();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,64 +19,19 @@ const HomePage = () => {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      
-      // Cargar información del usuario actual
-      const userResponse = await userService.getCurrentUser();
-      if (userResponse.success && userResponse.user) {
-        setUser(userResponse.user);
-      }
-      
+
       // Cargar todas las aplicaciones activas
       const appsResponse = await applicationService.getAllApplications();
       if (appsResponse.success && appsResponse.applications) {
         setApplications(appsResponse.applications);
       }
-      
+
     } catch (err) {
       console.error('Error loading initial data:', err);
       setError('Error al cargar la información inicial');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleUserChange = async (newUser) => {
-    try {
-      setUser(newUser);
-      
-      // Mostrar notificación del cambio
-      showUserChangeNotification(newUser.name);
-      
-    } catch (err) {
-      console.error('Error changing user:', err);
-      setError('Error al cambiar de usuario');
-    }
-  };
-
-  const showUserChangeNotification = (userName) => {
-    // Crear notificación temporal
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 bg-purple-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 transform transition-all duration-300';
-    notification.innerHTML = `
-      <div class="flex items-center space-x-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-        </svg>
-        <span>Cambiado a ${userName}</span>
-      </div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Remover después de 3 segundos
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
-      setTimeout(() => {
-        if (document.body.contains(notification)) {
-          document.body.removeChild(notification);
-        }
-      }, 300);
-    }, 3000);
   };
 
   const handleApplicationClick = (application) => {
@@ -147,13 +101,13 @@ const HomePage = () => {
       <main className="flex-1">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Welcome section */}
-          {user && (
+          {userContext && !userContext.error && (
             <div className="text-center mb-8 animate-fade-in">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
-                Bienvenido, {user.name}
+                Bienvenido, {userContext.name || userContext.email?.split('@')[0]}
               </h2>
               <p className="text-sm text-gray-500">
-                {user.department} • {user.roleName}
+                {userContext.environment} • {userContext.userType}
               </p>
             </div>
           )}

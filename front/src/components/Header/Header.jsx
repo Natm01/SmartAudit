@@ -1,51 +1,11 @@
 // frontend/src/components/Header/Header.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import logo from '../../assets/images/logo-positivo.png';
-import userService from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
 
-const Header = ({ user, onUserChange }) => {
-  const { userContext, logout } = useAuth(); // 👈 Usar el AuthContext
-  const [showUserSelector, setShowUserSelector] = useState(false);
-  const [availableUsers, setAvailableUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-
-  // Cargar usuarios disponibles
-  useEffect(() => {
-    const loadAvailableUsers = async () => {
-      try {
-        setLoadingUsers(true);
-        const response = await userService.getAvailableUsers();
-        
-        if (response.success && response.users) {
-          console.log('✅ Usuarios cargados:', response.users);
-          setAvailableUsers(response.users);
-        }
-      } catch (error) {
-        console.error('❌ Error cargando usuarios:', error);
-        setAvailableUsers([]);
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-
-    loadAvailableUsers();
-  }, []);
-
-  const handleSelectUser = (selectedUser) => {
-    console.log('🔄 Cambiando usuario a:', selectedUser.name);
-    
-    // Actualizar el estado en el servicio
-    userService.setCurrentUser(selectedUser);
-    
-    // Llamar la función callback si existe
-    if (onUserChange) {
-      onUserChange(selectedUser);
-    }
-    
-    // Cerrar el dropdown
-    setShowUserSelector(false);
-  };
+const Header = () => {
+  const { userContext, logout } = useAuth();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Función para generar iniciales del usuario
   const getUserInitials = (userName) => {
@@ -90,8 +50,8 @@ const Header = ({ user, onUserChange }) => {
     return name.trim() || 'Usuario Desconocido';
   };
 
-  // 👇 Determinar qué usuario mostrar (Azure AD tiene prioridad)
-  const displayUser = userContext && !userContext.error 
+  // Usuario autenticado desde Azure AD
+  const displayUser = userContext && !userContext.error
     ? {
         name: getNameFromEmail(userContext.email),
         email: userContext.email,
@@ -99,7 +59,7 @@ const Header = ({ user, onUserChange }) => {
         environment: userContext.environment,
         userType: userContext.userType
       }
-    : user;
+    : null;
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -129,10 +89,10 @@ const Header = ({ user, onUserChange }) => {
               </div>
             )}
 
-            {/* Selector de usuario */}
+            {/* Menú de usuario */}
             <div className="relative">
               <button
-                onClick={() => setShowUserSelector(!showUserSelector)}
+                onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
@@ -143,12 +103,12 @@ const Header = ({ user, onUserChange }) => {
                 </svg>
               </button>
 
-              {/* Dropdown de usuarios */}
-              {showUserSelector && (
+              {/* Dropdown del menú de usuario */}
+              {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                   {/* Información del usuario autenticado */}
                   {userContext && !userContext.error && (
-                    <div className="p-4 border-b border-gray-200 bg-purple-50">
+                    <div className="p-4 bg-purple-50">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium">
                           {getUserInitials(getNameFromEmail(userContext.email))}
@@ -170,7 +130,7 @@ const Header = ({ user, onUserChange }) => {
                   <div className="p-3 border-t border-gray-200">
                     <button
                       onClick={() => {
-                        setShowUserSelector(false);
+                        setShowUserMenu(false);
                         logout();
                       }}
                       className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center space-x-2"
