@@ -3,12 +3,49 @@ import React, { useState, useEffect } from 'react';
 import importService from '../../services/importService';
 
 const ValidationPhases = ({ fileType, executionId, period, onComplete, isMappingApplied = true }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [phases, setPhases] = useState([]);
+  // Claves para sessionStorage
+  const getStorageKey = (suffix) => `validation_${executionId}_${fileType}_${suffix}`;
+
+  // Función para cargar estado desde sessionStorage
+  const loadStateFromStorage = () => {
+    try {
+      const savedPhases = sessionStorage.getItem(getStorageKey('phases'));
+      const savedCompleted = sessionStorage.getItem(getStorageKey('allCompleted'));
+      const savedProgress = sessionStorage.getItem(getStorageKey('progressData'));
+      const savedExpanded = sessionStorage.getItem(getStorageKey('isExpanded'));
+
+      return {
+        phases: savedPhases ? JSON.parse(savedPhases) : null,
+        allCompleted: savedCompleted === 'true',
+        progressData: savedProgress ? JSON.parse(savedProgress) : null,
+        isExpanded: savedExpanded === 'true'
+      };
+    } catch (error) {
+      console.warn('Could not load validation state from sessionStorage:', error);
+      return { phases: null, allCompleted: false, progressData: null, isExpanded: false };
+    }
+  };
+
+  // Función para guardar estado en sessionStorage
+  const saveStateToStorage = (phasesToSave, completedStatus, progress) => {
+    try {
+      sessionStorage.setItem(getStorageKey('phases'), JSON.stringify(phasesToSave));
+      sessionStorage.setItem(getStorageKey('allCompleted'), completedStatus.toString());
+      sessionStorage.setItem(getStorageKey('progressData'), JSON.stringify(progress));
+      sessionStorage.setItem(getStorageKey('timestamp'), Date.now().toString());
+    } catch (error) {
+      console.warn('Could not save validation state to sessionStorage:', error);
+    }
+  };
+
+  const savedState = loadStateFromStorage();
+
+  const [isExpanded, setIsExpanded] = useState(savedState.isExpanded);
+  const [phases, setPhases] = useState(savedState.phases || []);
   const [isValidating, setIsValidating] = useState(false);
-  const [allCompleted, setAllCompleted] = useState(false);
+  const [allCompleted, setAllCompleted] = useState(savedState.allCompleted);
   const [validationError, setValidationError] = useState(null);
-  const [progressData, setProgressData] = useState({
+  const [progressData, setProgressData] = useState(savedState.progressData || {
     completed: 0,
     total: 4
   });
@@ -70,14 +107,32 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
 
   const currentPhaseDefinitions = phaseDefinitions[fileType] || [];
 
-  // Inicializar las fases con estado pendiente
+  // Inicializar las fases con estado pendiente solo si no hay estado guardado
   useEffect(() => {
-    const initialPhases = currentPhaseDefinitions.map(phase => ({
-      ...phase,
-      status: 'pending'
-    }));
-    setPhases(initialPhases);
+    if (phases.length === 0) {
+      const initialPhases = currentPhaseDefinitions.map(phase => ({
+        ...phase,
+        status: 'pending'
+      }));
+      setPhases(initialPhases);
+    }
   }, [fileType]);
+
+  // Guardar estado cuando cambie
+  useEffect(() => {
+    if (phases.length > 0) {
+      saveStateToStorage(phases, allCompleted, progressData);
+    }
+  }, [phases, allCompleted, progressData]);
+
+  // Guardar estado de expansión
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(getStorageKey('isExpanded'), isExpanded.toString());
+    } catch (error) {
+      console.warn('Could not save isExpanded state:', error);
+    }
+  }, [isExpanded]);
 
   const startValidation = async () => {
     if (!executionId) {
