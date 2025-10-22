@@ -89,13 +89,16 @@ export const AuthProvider = ({ children }) => {
             console.log('✅ Datos recibidos del backend:', data);
 
             // Usar SOLO los datos del endpoint
-            // Si no viene email en el endpoint, usar el de Azure como fallback
+            // Normalizar campos con typos del backend
             const userData = {
               ...data,
+              // Normalizar displaName → displayName (el backend tiene un typo)
+              displayName: data.displayName || data.displaName,
+              // Fallback para email
               email: data.email || data.username || account.username,
             };
 
-            console.log('✅ Contexto de usuario final:', userData);
+            console.log('✅ Contexto de usuario final (normalizado):', userData);
             setUserContext(userData);
           } else {
             const errorText = await apiResponse.text();
