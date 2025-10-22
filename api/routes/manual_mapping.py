@@ -250,11 +250,13 @@ async def apply_manual_mapping(execution_id: str, mapping_request: ManualMapping
         
         # Regenerate CSV files with new mappings
         regenerated_files = await _regenerate_mapeo_files(execution, current_decisions)
-        
-        # Update mapeo results with new file paths
+
+        # Update mapeo results with new file paths (sin sobrescribir el auto-mapeo)
         if regenerated_files.get('output_file'):
-            updated_mapeo_results['output_file'] = regenerated_files['output_file']
+            updated_mapeo_results['manual_mapeo_output_file'] = regenerated_files['output_file']
+            updated_mapeo_results['output_file'] = regenerated_files['output_file']  # Última versión
         if regenerated_files.get('report_file'):
+            updated_mapeo_results['manual_mapeo_report_file'] = regenerated_files['report_file']
             updated_mapeo_results['report_file'] = regenerated_files['report_file']
         
         # Update execution

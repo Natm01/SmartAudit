@@ -117,20 +117,22 @@ async def _process_sumas_saldos_mapeo_background(execution_id: str, raw_file_pat
         
         manual_mapping_required = len(unmapped_columns) > 0
         
-        # Step 2: Process with automatic mapping
+        # Step 2: Process with automatic mapping (is_manual=False por defecto)
         result = await sumas_saldos_service.process_sumas_saldos(
             raw_file_path,
             automatic_mapping,
-            execution_id
+            execution_id,
+            is_manual=False  # Explícitamente indicar que es automático
         )
-        
-        # Update execution with results
+
+        # Update execution with results (guardar en campo específico de auto-mapeo)
         if manual_mapping_required:
             execution_service.update_execution(
                 execution_id,
                 sumas_saldos_status="completed",
                 sumas_saldos_mapping=automatic_mapping,
-                sumas_saldos_csv_path=result["csv_path"],
+                sumas_saldos_auto_csv_path=result["csv_path"],  # Guardar auto-mapeo
+                sumas_saldos_csv_path=result["csv_path"],  # Última versión
                 sumas_saldos_stats=result["stats"],
                 sumas_saldos_manual_mapping_required=True,
                 sumas_saldos_unmapped_count=len(unmapped_columns)
@@ -140,7 +142,8 @@ async def _process_sumas_saldos_mapeo_background(execution_id: str, raw_file_pat
                 execution_id,
                 sumas_saldos_status="completed",
                 sumas_saldos_mapping=automatic_mapping,
-                sumas_saldos_csv_path=result["csv_path"],
+                sumas_saldos_auto_csv_path=result["csv_path"],  # Guardar auto-mapeo
+                sumas_saldos_csv_path=result["csv_path"],  # Última versión
                 sumas_saldos_stats=result["stats"],
                 sumas_saldos_manual_mapping_required=False,
                 sumas_saldos_unmapped_count=0

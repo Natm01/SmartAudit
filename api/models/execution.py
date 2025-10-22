@@ -30,13 +30,18 @@ class ExecutionStatus(BaseModel):
     mapeo_results: Optional[Dict[str, Any]] = None
     manual_mapping_required: bool = False
     unmapped_fields_count: int = 0
-    output_file: Optional[str] = None  # 🆕 NUEVO: Path del archivo final mapeado
-    
+    output_file: Optional[str] = None  # Path del archivo final mapeado (última versión)
+    auto_mapeo_output_file: Optional[str] = None  # 🆕 Path del archivo AUTO-MAPEADO
+    manual_mapeo_output_file: Optional[str] = None  # 🆕 Path del archivo MANUAL-MAPEADO
+    manual_mapeo_report_file: Optional[str] = None  # 🆕 Path del reporte de mapeo manual
+
     # Campos para Sumas y Saldos (Trial Balance)
     sumas_saldos_raw_path: Optional[str] = None  # Path del Excel original de Sumas y Saldos
     sumas_saldos_status: Optional[str] = None  # "uploaded", "processing", "completed", "failed"
     sumas_saldos_mapping: Optional[Dict[str, Any]] = None  # Mapeo de columnas de Sumas y Saldos
-    sumas_saldos_csv_path: Optional[str] = None  # Path del CSV procesado de Sumas y Saldos
+    sumas_saldos_csv_path: Optional[str] = None  # Path del CSV procesado (última versión)
+    sumas_saldos_auto_csv_path: Optional[str] = None  # 🆕 Path del CSV AUTO-MAPEADO
+    sumas_saldos_manual_csv_path: Optional[str] = None  # 🆕 Path del CSV MANUAL-MAPEADO
     sumas_saldos_stats: Optional[Dict[str, Any]] = None  # Estadísticas del procesamiento
     sumas_saldos_error: Optional[str] = None  # Error si el procesamiento falla
     sumas_saldos_manual_mapping_required: Optional[bool] = False  # Si necesita mapeo manual
