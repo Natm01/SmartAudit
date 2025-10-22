@@ -43,6 +43,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         if (timeDiff < maxAge) {
           const parsedData = JSON.parse(savedMappings);
           console.log('📦 Restaurando mapeo desde sessionStorage:', parsedData);
+          console.log('⚠️ IMPORTANTE: Mapeos cargados pero NO marcar como aplicados (esperando acción del usuario)');
           // Soportar formato antiguo y nuevo
           if (parsedData.mappings) {
             return parsedData; // Formato nuevo con mappings y confidences
@@ -132,16 +133,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         setFieldMappings(savedData.mappings);
         setFieldConfidences(savedData.confidences || {});
 
-        // Asegurar que el flag de mapeo aplicado también esté guardado
-        try {
-          const storageKey = fileType === 'sumas_saldos'
-            ? `mappingApplied_${executionId}-ss`
-            : `mappingApplied_${executionId}`;
-          sessionStorage.setItem(storageKey, 'true');
-          console.log(`✅ Flag de mapeo confirmado al cargar desde storage: ${storageKey}`);
-        } catch (error) {
-          console.warn('Could not save mapping applied flag:', error);
-        }
+        // ❌ NO guardar flag de mapeo aplicado aquí
+        // El flag solo debe guardarse cuando el usuario hace click en "Aplicar Mapeo"
+        console.log('ℹ️ Mapeos cargados en la tabla, pero flag mappingApplied NO modificado (esperando acción del usuario)');
 
         setLoading(false);
         return;
@@ -167,15 +161,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
           setFieldMappings(frontendMappings);
           setOriginalBackendMappings(frontendMappings);
 
-          // NUEVO: Si hay mapeos del backend, marcar como aplicado en sessionStorage
-          if (Object.keys(frontendMappings).length > 0) {
-            try {
-              sessionStorage.setItem(`mappingApplied_${executionId}-ss`, 'true');
-              console.log('✅ Flag de mapeo restaurado desde backend: mappingApplied_' + executionId + '-ss');
-            } catch (error) {
-              console.warn('Could not save mapping applied flag:', error);
-            }
-          }
+          // ❌ NO guardar flag de mapeo aplicado al cargar automapeo del backend
+          // Los mapeos del backend son AUTOMAPEOS, no mapeos aplicados manualmente
+          console.log('ℹ️ Automapeo de Sumas y Saldos cargado en la tabla, pero flag mappingApplied NO modificado');
+          console.log('   El usuario debe hacer click en "Aplicar Mapeo" para activar el preview azul');
         } else {
           console.log('🆕 Sumas y Saldos sin mapeo previo, iniciando desde cero');
         }
@@ -212,15 +201,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
           setFieldConfidences(confidences);
           setOriginalBackendMappings({ mappings: frontendMappings, confidences });
 
-          // NUEVO: Si hay mapeos del backend, marcar como aplicado en sessionStorage
-          if (Object.keys(frontendMappings).length > 0) {
-            try {
-              sessionStorage.setItem(`mappingApplied_${executionId}`, 'true');
-              console.log('✅ Flag de mapeo restaurado desde backend: mappingApplied_' + executionId);
-            } catch (error) {
-              console.warn('Could not save mapping applied flag:', error);
-            }
-          }
+          // ❌ NO guardar flag de mapeo aplicado al cargar automapeo del backend
+          // Los mapeos del backend son AUTOMAPEOS, no mapeos aplicados manualmente
+          console.log('ℹ️ Automapeo del Libro Diario cargado en la tabla, pero flag mappingApplied NO modificado');
+          console.log('   El usuario debe hacer click en "Aplicar Mapeo" para activar el preview azul');
         }
       }
       
