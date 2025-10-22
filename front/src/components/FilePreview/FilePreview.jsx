@@ -8,12 +8,19 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Inicializar showMappedPreview desde sessionStorage
+  const getInitialMappedPreviewState = () => {
+    if (!executionId) return false;
+    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
+    return mappingAppliedFlag === 'true';
+  };
+
   const [fieldMappings, setFieldMappings] = useState({});
-  const [showMappedNames, setShowMappedNames] = useState(false);
+  const [showMappedNames, setShowMappedNames] = useState(getInitialMappedPreviewState());
   const [isMapperOpen, setIsMapperOpen] = useState(showMapperByDefault);
   const [showAppliedNotification, setShowAppliedNotification] = useState(false);
-  
-  const [showMappedPreview, setShowMappedPreview] = useState(false);
+
+  const [showMappedPreview, setShowMappedPreview] = useState(getInitialMappedPreviewState());
   
   const appliedMappingsRef = useRef({});
   const isApplyingMappingRef = useRef(false);
