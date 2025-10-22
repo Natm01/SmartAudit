@@ -131,6 +131,18 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         console.log('📦 Cargando mapeo desde sessionStorage');
         setFieldMappings(savedData.mappings);
         setFieldConfidences(savedData.confidences || {});
+
+        // Asegurar que el flag de mapeo aplicado también esté guardado
+        try {
+          const storageKey = fileType === 'sumas_saldos'
+            ? `mappingApplied_${executionId}-ss`
+            : `mappingApplied_${executionId}`;
+          sessionStorage.setItem(storageKey, 'true');
+          console.log(`✅ Flag de mapeo confirmado al cargar desde storage: ${storageKey}`);
+        } catch (error) {
+          console.warn('Could not save mapping applied flag:', error);
+        }
+
         setLoading(false);
         return;
       }
@@ -139,56 +151,76 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       
       if (fileType === 'sumas_saldos') {
         const statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
-        
+
         if (statusResult.success && statusResult.data.mapping) {
           console.log('Mapeo de Sumas y Saldos encontrado:', statusResult.data.mapping);
-          
+
           const backendMapping = statusResult.data.mapping || {};
           const frontendMappings = {};
-          
+
           Object.entries(backendMapping).forEach(([bdField, excelColumn]) => {
             if (excelColumn) {
               frontendMappings[excelColumn] = bdField;
             }
           });
-          
+
           setFieldMappings(frontendMappings);
           setOriginalBackendMappings(frontendMappings);
+
+          // NUEVO: Si hay mapeos del backend, marcar como aplicado en sessionStorage
+          if (Object.keys(frontendMappings).length > 0) {
+            try {
+              sessionStorage.setItem(`mappingApplied_${executionId}-ss`, 'true');
+              console.log('✅ Flag de mapeo restaurado desde backend: mappingApplied_' + executionId + '-ss');
+            } catch (error) {
+              console.warn('Could not save mapping applied flag:', error);
+            }
+          }
         } else {
           console.log('🆕 Sumas y Saldos sin mapeo previo, iniciando desde cero');
         }
         
       } else {
         const fieldsResult = await importService.getFieldsMapping(executionId);
-        
+
         if (fieldsResult.success) {
           console.log('Respuesta del backend:', fieldsResult.data);
           setMapeoData(fieldsResult.data);
-          
+
           const backendMappings = fieldsResult.data.mapped_fields || {};
           const frontendMappings = {};
           const confidences = {};
-          
+
           Object.entries(backendMappings).forEach(([standardField, mapping]) => {
             if (mapping.mapped_column) {
               frontendMappings[mapping.mapped_column] = standardField;
-              
+
               if (mapping.confidence !== undefined) {
                 confidences[mapping.mapped_column] = mapping.confidence;
               }
-              
+
               console.log(`Mapeando: "${mapping.mapped_column}" -> "${standardField}"${
                 mapping.confidence !== undefined ? ` (confidence: ${mapping.confidence})` : ''
               }`);
             }
           });
-          
+
           console.log('📋 Mapeo final del frontend:', frontendMappings);
           console.log('🎯 Confidences capturadas:', confidences);
-          
+
           setFieldMappings(frontendMappings);
           setFieldConfidences(confidences);
           setOriginalBackendMappings({ mappings: frontendMappings, confidences });
+
+          // NUEVO: Si hay mapeos del backend, marcar como aplicado en sessionStorage
+          if (Object.keys(frontendMappings).length > 0) {
+            try {
+              sessionStorage.setItem(`mappingApplied_${executionId}`, 'true');
+              console.log('✅ Flag de mapeo restaurado desde backend: mappingApplied_' + executionId);
+            } catch (error) {
+              console.warn('Could not save mapping applied flag:', error);
+            }
+          }
         }
       }
       
