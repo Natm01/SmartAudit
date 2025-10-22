@@ -201,35 +201,36 @@ class MapeoService:
             'low_confidence_count': sum(1 for c in confidences if c < 0.7)
         }
     
-    async def _upload_mapeo_results(self, mapeo_result: Dict[str, Any], 
+    async def _upload_mapeo_results(self, mapeo_result: Dict[str, Any],
                                 execution_id: str) -> Dict[str, Any]:
-        """Upload mapeo result files to Azure Storage - SINGLE FILE VERSION"""
+        """Upload mapeo result files to Azure Storage - WITH AUTO_MAPPED IDENTIFICATION"""
         try:
             updated_result = mapeo_result.copy()
-            
-            # CAMBIO: Subir UN SOLO archivo (no header/detail)
+
+            # CAMBIO: Guardar archivo AUTO-MAPEADO con nombre identificable
             if mapeo_result.get('output_file') and not mapeo_result['output_file'].startswith('azure://'):
                 local_file = mapeo_result['output_file']
                 try:
                     with open(local_file, 'rb') as f:
                         file_content = f.read()
-                    
-                    # Nombre simplificado: executionId_mapped_Je.csv
+
+                    # Nombre identificable: executionId_auto_mapped_Je.csv
                     azure_path = self.azure_service.upload_from_memory(
                         file_content,
-                        f"mapped.csv",
+                        f"auto_mapped.csv",
                         container_type="mapeos",
                         execution_id=execution_id,
                         file_type="Je",
                         stage="mapeo",
-                        description="mapped",
+                        description="auto_mapped",
                         keep_original_name=False
                     )
-                    updated_result['output_file'] = azure_path
-                    logger.info(f"Uploaded mapped file to Azure: {azure_path}")
+                    updated_result['auto_mapeo_output_file'] = azure_path
+                    updated_result['output_file'] = azure_path  # También mantener referencia general
+                    logger.info(f"✅ Uploaded AUTO-MAPPED file to Azure: {azure_path}")
                 except Exception as e:
-                    logger.warning(f"Could not upload mapped file: {e}")
-            
+                    logger.warning(f"Could not upload auto-mapped file: {e}")
+
             # Generate and upload report
             try:
                 azure_report_path = await self.report_service.generate_mapeo_report(
@@ -238,9 +239,9 @@ class MapeoService:
                 updated_result['report_file'] = azure_report_path
             except Exception as e:
                 logger.warning(f"Could not generate report: {e}")
-            
+
             return updated_result
-            
+
         except Exception as e:
             logger.error(f"Error uploading mapeo results to Azure: {e}")
             return mapeo_result

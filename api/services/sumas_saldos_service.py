@@ -215,34 +215,36 @@ class SumasSaldosService:
         }
     
     async def process_sumas_saldos(
-        self, 
-        raw_file_path: str, 
+        self,
+        raw_file_path: str,
         mapping: Dict[str, Any],
-        execution_id: str
+        execution_id: str,
+        is_manual: bool = False  # NUEVO: Indicar si es mapeo manual
     ) -> Dict[str, Any]:
         """
         Process Sumas y Saldos file with confirmed mapping.
         Returns processed file path and statistics.
         """
         try:
-            logger.info(f"Processing Sumas y Saldos for execution: {execution_id}")
-            
+            logger.info(f"Processing Sumas y Saldos for execution: {execution_id} (manual={is_manual})")
+
             # Download from Azure if needed
             if raw_file_path.startswith("azure://") and self.azure_service:
                 with self.temp_manager.get_local_file(raw_file_path) as local_file:
-                    return await self._process_from_local(local_file, mapping, execution_id)
+                    return await self._process_from_local(local_file, mapping, execution_id, is_manual)
             else:
-                return await self._process_from_local(raw_file_path, mapping, execution_id)
-                
+                return await self._process_from_local(raw_file_path, mapping, execution_id, is_manual)
+
         except Exception as e:
             logger.error(f"Error processing Sumas y Saldos: {e}")
             raise
     
     async def _process_from_local(
-        self, 
-        file_path: str, 
+        self,
+        file_path: str,
         mapping: Dict[str, Any],
-        execution_id: str
+        execution_id: str,
+        is_manual: bool = False
     ) -> Dict[str, Any]:
         """Process Sumas y Saldos from local file"""
         # Detect header row
@@ -296,19 +298,25 @@ class SumasSaldosService:
             # Save to temp file then upload
             with self.temp_manager.create_temp_file('.csv') as temp_csv:
                 result.to_csv(temp_csv, index=False, sep=",", float_format="%.2f")
-                
-                # Upload with Sys type
+
+                # Upload with Sys type and descripción según tipo de mapeo
+                description = "manual_mapped" if is_manual else "auto_mapped"
                 csv_path = self.azure_service.upload_file_chunked(
                     temp_csv,
                     container_type="mapeos",
                     execution_id=execution_id,
-                    file_type="Sys"
+                    file_type="Sys",
+                    stage="mapeo",
+                    description=description
                 )
+                mapping_type = "MANUAL" if is_manual else "AUTO"
+                logger.info(f"✅ Uploaded {mapping_type}-MAPPED Sumas y Saldos: {csv_path}")
         else:
             # Save locally
             output_dir = f"uploads/{execution_id}"
             Path(output_dir).mkdir(parents=True, exist_ok=True)
-            csv_path = f"{output_dir}/{execution_id}_sumas_saldos.csv"
+            suffix = "manual" if is_manual else "auto"
+            csv_path = f"{output_dir}/{execution_id}_sumas_saldos_{suffix}.csv"
             result.to_csv(csv_path, index=False, sep=",", float_format="%.2f")
         
         # Calculate statistics

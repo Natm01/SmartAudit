@@ -128,24 +128,27 @@ async def apply_sumas_saldos_manual_mapping(
         # El execution_id viene como "xxx-ss" pero Azure necesita solo "xxx"
         clean_execution_id = execution_id.replace('-ss', '')
         print(f"SUMAS Y SALDOS: Using execution_id for storage: {clean_execution_id}")
-        
-        # Process Sumas y Saldos with updated mapping
+
+        # Process Sumas y Saldos with updated mapping (indicar que es MANUAL)
         result = await sumas_saldos_service.process_sumas_saldos(
             execution.sumas_saldos_raw_path,
             current_mapping,
-            clean_execution_id  #  Usar ID limpio
+            clean_execution_id,  #  Usar ID limpio
+            is_manual=True  # NUEVO: Indicar que es mapeo manual
         )
-        
-        # Update execution with new mapping and results
-        execution_service.update_execution(
-            execution_id,
-            sumas_saldos_mapping=current_mapping,
-            sumas_saldos_csv_path=result["csv_path"],
-            sumas_saldos_stats=result["stats"],
-            sumas_saldos_status="completed",
-            sumas_saldos_manual_mapping_required=False,
-            sumas_saldos_unmapped_count=0
-        )
+
+        # Update execution with new mapping and results (sin sobrescribir el auto)
+        update_data = {
+            "sumas_saldos_mapping": current_mapping,
+            "sumas_saldos_manual_csv_path": result["csv_path"],  # Nuevo campo para manual
+            "sumas_saldos_csv_path": result["csv_path"],  # Última versión
+            "sumas_saldos_stats": result["stats"],
+            "sumas_saldos_status": "completed",
+            "sumas_saldos_manual_mapping_required": False,
+            "sumas_saldos_unmapped_count": 0
+        }
+
+        execution_service.update_execution(execution_id, **update_data)
         
         print(f"SUMAS Y SALDOS: Successfully applied {len(applied_mappings)} mappings")
         
