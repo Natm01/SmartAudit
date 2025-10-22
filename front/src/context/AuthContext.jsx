@@ -59,15 +59,12 @@ export const AuthProvider = ({ children }) => {
         account
       });
 
-      // Extraer y procesar roles
+      // Extraer y procesar roles para validar acceso
       const roles = response.idTokenClaims?.roles || [];
       const userRole = roles.find(role => role.startsWith('smart-audit.'));
-      
-      if (userRole) {
-        // Primero parseamos los roles base
-        const parsed = parseUserRole(userRole, account.username);
 
-        // Luego pedimos los datos enriquecidos del usuario desde el backend
+      if (userRole) {
+        // Obtener token para autenticar la petición al backend
         const idToken = response.idToken;
 
         try {
@@ -91,19 +88,15 @@ export const AuthProvider = ({ children }) => {
             const data = await apiResponse.json();
             console.log('✅ Datos recibidos del backend:', data);
 
-            // Asegurar que siempre tengamos el campo id
-            const mergedData = {
-              ...parsed,
+            // Usar SOLO los datos del endpoint
+            // Si no viene email en el endpoint, usar el de Azure como fallback
+            const userData = {
               ...data,
+              email: data.email || data.username || account.username,
             };
 
-            // Si el backend no retorna id, usar el que extrajimos del email
-            if (!mergedData.id && parsed.id) {
-              mergedData.id = parsed.id;
-            }
-
-            console.log('✅ Contexto de usuario final:', mergedData);
-            setUserContext(mergedData);
+            console.log('✅ Contexto de usuario final:', userData);
+            setUserContext(userData);
           } else {
             const errorText = await apiResponse.text();
             console.error('❌ Error en la respuesta del backend:', {
@@ -111,12 +104,16 @@ export const AuthProvider = ({ children }) => {
               statusText: apiResponse.statusText,
               body: errorText,
             });
-            console.log('⚠️ Usando datos parseados del token como fallback');
+            console.log('⚠️ Usando fallback con datos mínimos del token Azure');
+            // Fallback con datos mínimos si el endpoint falla
+            const parsed = parseUserRole(userRole, account.username);
             setUserContext(parsed);
           }
         } catch (error) {
           console.error('❌ Error obteniendo user-context:', error);
-          console.log('⚠️ Usando datos parseados del token como fallback');
+          console.log('⚠️ Usando fallback con datos mínimos del token Azure');
+          // Fallback con datos mínimos si hay error de red
+          const parsed = parseUserRole(userRole, account.username);
           setUserContext(parsed);
         }
       } else {
