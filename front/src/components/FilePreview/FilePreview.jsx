@@ -440,19 +440,22 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
                   {previewData.headers
                     .map((h, originalIdx) => ({ header: h, originalIdx }))
                     .sort((a, b) => {
+                      // Solo reordenar si el mapeo fue aplicado explícitamente
+                      if (!showMappedPreview) return 0;
                       const aMapped = fieldMappings[a.header] ? 1 : 0;
                       const bMapped = fieldMappings[b.header] ? 1 : 0;
                       return bMapped - aMapped;
                     })
                     .map(({ header: h, originalIdx }) => {
-                      const mapped = fieldMappings[h];
-                      
+                      // Solo mostrar como mapeado si el mapeo fue aplicado explícitamente
+                      const mapped = showMappedPreview && fieldMappings[h];
+
                       return (
-                        <th 
-                          key={h} 
+                        <th
+                          key={h}
                           data-original-index={originalIdx}
                           className={`px-4 py-3 text-left text-xs font-semibold tracking-wider ${
-                            mapped 
+                            mapped
                               ? 'text-blue-700 bg-blue-50'
                               : 'text-gray-700'
                           }`}
@@ -477,6 +480,8 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
                   const sortedColumns = previewData.headers
                     .map((h, originalIdx) => ({ header: h, originalIdx }))
                     .sort((a, b) => {
+                      // Solo reordenar si el mapeo fue aplicado explícitamente
+                      if (!showMappedPreview) return 0;
                       const aMapped = fieldMappings[a.header] ? 1 : 0;
                       const bMapped = fieldMappings[b.header] ? 1 : 0;
                       return bMapped - aMapped;
@@ -491,13 +496,14 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
                     >
                       {sortedColumns.map(({ header, originalIdx }) => {
                         const cell = row[originalIdx];
-                        const isMapped = fieldMappings[header];
-                        
+                        // Solo mostrar como mapeado si el mapeo fue aplicado explícitamente
+                        const isMapped = showMappedPreview && fieldMappings[header];
+
                         return (
-                          <td 
-                            key={`${idx}-${originalIdx}`} 
+                          <td
+                            key={`${idx}-${originalIdx}`}
                             className={`px-4 py-2.5 whitespace-nowrap text-sm ${
-                              isMapped 
+                              isMapped
                                 ? 'text-blue-900 font-medium bg-blue-50'
                                 : 'text-gray-600'
                             }`}
