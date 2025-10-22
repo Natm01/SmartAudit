@@ -1,11 +1,17 @@
 """
 Servicio para conexión y ejecución de stored procedures en Azure SQL Database
+
+Soporta dos métodos de autenticación:
+1. Managed Identity (recomendado para Azure Container Apps/VM)
+2. SQL Authentication (usuario/contraseña como fallback)
 """
 import pyodbc
 import os
 import logging
+import struct
 from typing import Optional, Dict, Any
 from datetime import datetime
+from azure.identity import ManagedIdentityCredential, DefaultAzureCredential
 from models.audit_execution import (
     AuditExecutionRequest,
     StoredProcedureResult
@@ -22,58 +28,93 @@ class AzureSQLService:
 
     def __init__(self):
         """
-        Inicializa el servicio con las credenciales desde variables de entorno.
+        Inicializa el servicio con configuración desde variables de entorno.
 
-        Variables de entorno requeridas:
-        - AZURE_SQL_SERVER: Nombre del servidor (ej: smau-dev-sql.database.windows.net)
-        - AZURE_SQL_DATABASE: Nombre de la base de datos
-        - AZURE_SQL_USERNAME: Usuario de la base de datos
-        - AZURE_SQL_PASSWORD: Contraseña del usuario
-        - AZURE_SQL_DRIVER: Driver ODBC (default: ODBC Driver 18 for SQL Server)
+        Métodos de autenticación soportados:
+
+        1. MANAGED IDENTITY (recomendado para Azure):
+           - AZURE_SQL_AUTH_METHOD=managed_identity
+           - AZURE_SQL_SERVER: Servidor SQL
+           - AZURE_SQL_DATABASE: Nombre de la base de datos
+           - AZURE_MANAGED_IDENTITY_CLIENT_ID (opcional): Client ID de la Managed Identity
+
+        2. SQL AUTHENTICATION (fallback para desarrollo local):
+           - AZURE_SQL_AUTH_METHOD=sql_auth o no configurado
+           - AZURE_SQL_SERVER: Servidor SQL
+           - AZURE_SQL_DATABASE: Nombre de la base de datos
+           - AZURE_SQL_USERNAME: Usuario
+           - AZURE_SQL_PASSWORD: Contraseña
         """
         self.server = os.getenv('AZURE_SQL_SERVER')
         self.database = os.getenv('AZURE_SQL_DATABASE')
-        self.username = os.getenv('AZURE_SQL_USERNAME')
-        self.password = os.getenv('AZURE_SQL_PASSWORD')
         self.driver = os.getenv('AZURE_SQL_DRIVER', 'ODBC Driver 18 for SQL Server')
 
-        # Validar que todas las variables estén configuradas
-        self._validate_config()
+        # Método de autenticación
+        self.auth_method = os.getenv('AZURE_SQL_AUTH_METHOD', 'sql_auth').lower()
 
-        # Construir connection string
-        self.connection_string = (
-            f"DRIVER={{{self.driver}}};"
-            f"SERVER={self.server};"
-            f"DATABASE={self.database};"
-            f"UID={self.username};"
-            f"PWD={self.password};"
-            "Encrypt=yes;TrustServerCertificate=no;"
-            "Connection Timeout=30;"
-        )
+        # Validar configuración básica
+        if not self.server or not self.database:
+            raise ValueError("AZURE_SQL_SERVER y AZURE_SQL_DATABASE son requeridos")
 
-    def _validate_config(self):
-        """Validar que todas las variables de entorno requeridas estén configuradas"""
-        missing_vars = []
+        # Configurar según método de autenticación
+        if self.auth_method == 'managed_identity':
+            logger.info("Usando Managed Identity para autenticación con Azure SQL")
+            self.managed_identity_client_id = os.getenv('AZURE_MANAGED_IDENTITY_CLIENT_ID')
+            self.credential = None  # Se inicializará al conectar
+        else:
+            logger.info("Usando SQL Authentication para autenticación con Azure SQL")
+            self.username = os.getenv('AZURE_SQL_USERNAME')
+            self.password = os.getenv('AZURE_SQL_PASSWORD')
 
-        if not self.server:
-            missing_vars.append('AZURE_SQL_SERVER')
-        if not self.database:
-            missing_vars.append('AZURE_SQL_DATABASE')
-        if not self.username:
-            missing_vars.append('AZURE_SQL_USERNAME')
-        if not self.password:
-            missing_vars.append('AZURE_SQL_PASSWORD')
-
-        if missing_vars:
-            error_msg = f"Variables de entorno faltantes: {', '.join(missing_vars)}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            if not self.username or not self.password:
+                raise ValueError(
+                    "Para SQL Authentication se requieren: "
+                    "AZURE_SQL_USERNAME, AZURE_SQL_PASSWORD"
+                )
 
         logger.info(f"Azure SQL configurado: {self.server}/{self.database}")
+
+    def _get_access_token_for_sql(self) -> bytes:
+        """
+        Obtiene el access token para Azure SQL usando Managed Identity.
+
+        Returns:
+            bytes: Token de acceso en formato compatible con pyodbc
+
+        Raises:
+            Exception: Si no se puede obtener el token
+        """
+        try:
+            # Crear credential según configuración
+            if self.managed_identity_client_id:
+                logger.debug(f"Usando Managed Identity con Client ID: {self.managed_identity_client_id}")
+                credential = ManagedIdentityCredential(client_id=self.managed_identity_client_id)
+            else:
+                logger.debug("Usando DefaultAzureCredential (incluye Managed Identity)")
+                credential = DefaultAzureCredential()
+
+            # Scope para Azure SQL Database
+            # https://database.windows.net/.default es el scope estándar para Azure SQL
+            token = credential.get_token("https://database.windows.net/.default")
+
+            # pyodbc requiere el token en un formato específico
+            token_bytes = token.token.encode("utf-16-le")
+            token_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)
+
+            logger.debug("Access token obtenido exitosamente")
+            return token_struct
+
+        except Exception as e:
+            logger.error(f"Error al obtener access token: {str(e)}")
+            raise Exception(f"No se pudo obtener access token de Managed Identity: {str(e)}")
 
     def get_connection(self) -> pyodbc.Connection:
         """
         Crear y retornar una conexión a Azure SQL Database.
+
+        Soporta dos métodos:
+        1. Managed Identity: Usa Azure AD para autenticación (más seguro)
+        2. SQL Authentication: Usa usuario/contraseña (fallback)
 
         Returns:
             pyodbc.Connection: Conexión activa a la base de datos
@@ -82,12 +123,56 @@ class AzureSQLService:
             Exception: Si no se puede establecer la conexión
         """
         try:
-            conn = pyodbc.connect(self.connection_string)
-            logger.debug("Conexión a Azure SQL establecida exitosamente")
+            if self.auth_method == 'managed_identity':
+                # MÉTODO 1: Managed Identity (recomendado para Azure)
+                logger.debug("Conectando con Managed Identity...")
+
+                # Obtener access token
+                token_struct = self._get_access_token_for_sql()
+
+                # Construir connection string sin usuario/contraseña
+                connection_string = (
+                    f"DRIVER={{{self.driver}}};"
+                    f"SERVER={self.server};"
+                    f"DATABASE={self.database};"
+                    "Encrypt=yes;TrustServerCertificate=no;"
+                    "Connection Timeout=30;"
+                )
+
+                # Conectar usando el token
+                # SQL_COPT_SS_ACCESS_TOKEN = 1256 es el atributo para el token
+                conn = pyodbc.connect(
+                    connection_string,
+                    attrs_before={1256: token_struct}
+                )
+
+                logger.debug("Conexión con Managed Identity establecida exitosamente")
+
+            else:
+                # MÉTODO 2: SQL Authentication (usuario/contraseña)
+                logger.debug("Conectando con SQL Authentication...")
+
+                connection_string = (
+                    f"DRIVER={{{self.driver}}};"
+                    f"SERVER={self.server};"
+                    f"DATABASE={self.database};"
+                    f"UID={self.username};"
+                    f"PWD={self.password};"
+                    "Encrypt=yes;TrustServerCertificate=no;"
+                    "Connection Timeout=30;"
+                )
+
+                conn = pyodbc.connect(connection_string)
+                logger.debug("Conexión con SQL Authentication establecida exitosamente")
+
             return conn
+
         except pyodbc.Error as e:
-            logger.error(f"Error al conectar con Azure SQL: {str(e)}")
+            logger.error(f"Error de pyodbc al conectar con Azure SQL: {str(e)}")
             raise Exception(f"No se pudo conectar a Azure SQL Database: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error general al conectar con Azure SQL: {str(e)}")
+            raise Exception(f"Error al establecer conexión: {str(e)}")
 
     def execute_audit_test_exec_sp(
         self,
