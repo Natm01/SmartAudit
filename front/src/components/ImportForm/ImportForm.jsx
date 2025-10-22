@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 const ImportForm = ({ projects, onSubmit, loading }) => {
   const [formData, setFormData] = useState({
     projectId: '',
+    fiscalYear: '',
     fechaInicio: '',
     fechaFin: '',
     libroDiarioFiles: [],
@@ -117,6 +118,15 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
     e.preventDefault();
     const newErrors = {};
     if (!formData.projectId) newErrors.projectId = 'Debe seleccionar un proyecto';
+    if (!formData.fiscalYear) {
+      newErrors.fiscalYear = 'El año fiscal es requerido';
+    } else {
+      const year = parseInt(formData.fiscalYear);
+      const currentYear = new Date().getFullYear();
+      if (isNaN(year) || year < 1900 || year > currentYear + 10) {
+        newErrors.fiscalYear = `Debe ser un año válido entre 1900 y ${currentYear + 10}`;
+      }
+    }
     if (!formData.fechaInicio) newErrors.fechaInicio = 'La fecha de inicio es requerida';
     if (!formData.fechaFin) newErrors.fechaFin = 'La fecha de fin es requerida';
     if (formData.fechaInicio && formData.fechaFin && formData.fechaInicio > formData.fechaFin) {
@@ -270,9 +280,9 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Proyecto + Fechas */}
+        {/* Proyecto + Año Fiscal + Fechas */}
         <div className="grid grid-cols-1 lg:grid-cols-8 gap-4">
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Proyecto <span className="text-red-500">*</span>
             </label>
@@ -291,6 +301,24 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
               ))}
             </select>
             {errors.projectId && <p className="text-xs text-red-600 mt-1">{errors.projectId}</p>}
+          </div>
+
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Año Fiscal (FiscalYear) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              value={formData.fiscalYear}
+              onChange={(e) => handleInputChange('fiscalYear', e.target.value)}
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
+                errors.fiscalYear ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="Ej: 2024"
+              min="1900"
+              max={new Date().getFullYear() + 10}
+            />
+            {errors.fiscalYear && <p className="text-xs text-red-600 mt-1">{errors.fiscalYear}</p>}
           </div>
 
           <div className="lg:col-span-2">
