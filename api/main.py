@@ -22,10 +22,11 @@ from routes.manual_mapping import router as manual_mapping_router
 from routes.preview import router as preview_router
 from routes.sumas_saldos import router as sumas_saldos_router
 from routes.sumas_saldos_manual_mapping import router as sumas_saldos_manual_mapping_router
-from routes.execution_status import router as execution_status_router 
+from routes.execution_status import router as execution_status_router
 from routes import validation_rules
 from routes import database_upload
 from routes import sumas_saldos_validation
+from routes.audit_execution import router as audit_execution_router
 
 # Configurar logging
 logging.basicConfig(
@@ -98,6 +99,9 @@ app.include_router(validation_rules.router)
 
 app.include_router(database_upload.router)
 app.include_router(sumas_saldos_validation.router)
+
+# Audit Execution Router (Azure SQL)
+app.include_router(audit_execution_router)
 
 # Modelos Pydantic
 class HealthResponse(BaseModel):
@@ -212,7 +216,9 @@ async def root():
             "/smau-proto/api/import/preview/{execution_id}",
             "/smau-proto/api/import/preview-sumas-saldos/{execution_id}",
             "/smau-proto/api/projects/",
-            "/smau-proto/api/applications/"
+            "/smau-proto/api/applications/",
+            "/smau-proto/api/audit/executions",  # NUEVO
+            "/smau-proto/api/audit/test-connection"  # NUEVO
         ]
     }
 
