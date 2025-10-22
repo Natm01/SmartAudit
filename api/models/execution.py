@@ -18,7 +18,11 @@ class ExecutionStatus(BaseModel):
     result_path: Optional[str] = None
     error: Optional[str] = None
     stats: Optional[Dict[str, Any]] = None
-    
+
+    # Metadatos del archivo
+    file_size: Optional[int] = None  # Tamaño del archivo en bytes
+    file_extension: Optional[str] = None  # Extensión del archivo (.csv, .xlsx, etc.)
+
     # Campos para coordinación
     file_type: Optional[str] = None  # "Je" para Journal Entries, "Sys" para Sumas y Saldos
     test_type: Optional[str] = None  # "libro_diario_import", "sumas_saldos_import"

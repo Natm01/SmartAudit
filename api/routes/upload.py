@@ -176,9 +176,15 @@ async def upload_file(
         )
     
     try:
+        # Extraer extensión del archivo original
+        file_extension = os.path.splitext(original_filename)[1]
+
+        # Variable para almacenar el tamaño final del archivo
+        final_file_size = None
+
         if settings.use_azure_storage:
             azure_service = get_azure_storage_service()
-            
+
             # Calcular tamaño del archivo
             file_size = None
             if hasattr(file, 'size') and file.size:
@@ -204,88 +210,93 @@ async def upload_file(
                 # Archivos grandes: usar background processing
                 temp_dir = tempfile.gettempdir()
                 temp_file_path = os.path.join(temp_dir, f"temp_upload_{execution_id}_{original_filename}")
-                
+
                 with open(temp_file_path, "wb") as buffer:
                     while True:
                         chunk = await file.read(8 * 1024 * 1024)  # 8MB chunks
                         if not chunk:
                             break
                         buffer.write(chunk)
-                
+
                 actual_size = os.path.getsize(temp_file_path)
+                final_file_size = actual_size  # Guardar tamaño final
                 if actual_size > settings.max_file_size:
                     os.remove(temp_file_path)
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                         detail=f"File size {actual_size} exceeds maximum allowed size {settings.max_file_size}"
                     )
-                
+
                 background_tasks.add_task(
-                    upload_large_file_background, 
-                    execution_id, 
+                    upload_large_file_background,
+                    execution_id,
                     temp_file_path,
                     file_type,
-                    azure_service, 
+                    azure_service,
                     settings
                 )
-                
+
                 file_path = f"uploading_to_azure://{execution_id}"
                 
             else:
                 # Archivos pequeños: subida inmediata con nombres estructurados
                 file_content = await file.read()
-                
+
                 file_size = len(file_content)
+                final_file_size = file_size  # Guardar tamaño final
                 if file_size > settings.max_file_size:
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                         detail=f"File size {file_size} exceeds maximum allowed size {settings.max_file_size}"
                     )
-                
+
                 # Usar el método con nueva nomenclatura simplificada
                 blob_url = azure_service.upload_from_memory(
-                    file_content, 
-                    original_filename, 
+                    file_content,
+                    original_filename,
                     container_type="upload",
                     execution_id=execution_id,
                     file_type=file_type,
                     stage="upload",
                     keep_original_name=True  # Mantener el nombre original
                 )
-                
+
                 file_path = blob_url
         else:
             # Local filesystem fallback
             file_content = await file.read()
-            
+
             file_size = len(file_content)
+            final_file_size = file_size  # Guardar tamaño final
             if file_size > settings.max_file_size:
                 raise HTTPException(
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     detail=f"File size {file_size} exceeds maximum allowed size {settings.max_file_size}"
                 )
-            
+
             os.makedirs(settings.full_upload_dir, exist_ok=True)
-            
+
             # Aplicar naming estructurado también en local
             name_without_ext = os.path.splitext(original_filename)[0]
             extension = os.path.splitext(original_filename)[1]
             local_filename = f"{execution_id}_{name_without_ext}_{file_type}{extension}"
             file_path = os.path.join(settings.full_upload_dir, local_filename)
-            
+
             with open(file_path, "wb") as buffer:
                 buffer.write(file_content)
         
         # Actualizar la ejecución con metadata adicional
         execution_service.update_execution(
-            execution_id, 
+            execution_id,
             file_path=file_path,
             file_name=original_filename,
             file_type=file_type,
             test_type=test_type,
             project_id=project_id,
             period=period,
-            parent_execution_id=parent_execution_id
+            parent_execution_id=parent_execution_id,
+            file_size=final_file_size,
+            file_extension=file_extension
         )
         
         # Para Sumas y Saldos, también actualizar sumas_saldos_raw_path
