@@ -11,16 +11,44 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   // Inicializar showMappedPreview y fieldMappings desde sessionStorage
   const getInitialMappedPreviewState = () => {
     if (!executionId) return false;
-    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
-    return mappingAppliedFlag === 'true';
+
+    // CRÍTICO: Verificar el flag correcto según el tipo de archivo
+    const storageKey = fileType === 'sumas_saldos'
+      ? `mappingApplied_${executionId}-ss`
+      : `mappingApplied_${executionId}`;
+
+    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+    const wasApplied = mappingAppliedFlag === 'true';
+
+    console.log(`🔍 getInitialMappedPreviewState (${fileType}):`, {
+      storageKey,
+      mappingAppliedFlag,
+      wasApplied
+    });
+
+    return wasApplied;
   };
 
   const getInitialFieldMappings = () => {
     if (!executionId) return {};
 
-    // Solo cargar mapeos si el mapeo fue aplicado
-    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
-    if (mappingAppliedFlag !== 'true') return {};
+    // CRÍTICO: Solo cargar mapeos si el mapeo fue aplicado
+    const storageKey = fileType === 'sumas_saldos'
+      ? `mappingApplied_${executionId}-ss`
+      : `mappingApplied_${executionId}`;
+
+    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+
+    console.log(`🔍 getInitialFieldMappings (${fileType}):`, {
+      storageKey,
+      mappingAppliedFlag,
+      shouldLoadMappings: mappingAppliedFlag === 'true'
+    });
+
+    if (mappingAppliedFlag !== 'true') {
+      console.log('⚠️ Mapeo NO fue aplicado explícitamente, NO cargar mapeos visuales');
+      return {};
+    }
 
     // Buscar mapeos en sessionStorage
     for (let i = 0; i < sessionStorage.length; i++) {
@@ -75,8 +103,23 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   const getInitialAppliedMappings = () => {
     if (!executionId) return {};
 
-    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
-    if (mappingAppliedFlag !== 'true') return {};
+    // CRÍTICO: Verificar el flag correcto según el tipo de archivo
+    const storageKey = fileType === 'sumas_saldos'
+      ? `mappingApplied_${executionId}-ss`
+      : `mappingApplied_${executionId}`;
+
+    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+
+    console.log(`🔍 getInitialAppliedMappings (${fileType}):`, {
+      storageKey,
+      mappingAppliedFlag,
+      shouldLoadApplied: mappingAppliedFlag === 'true'
+    });
+
+    if (mappingAppliedFlag !== 'true') {
+      console.log('⚠️ Mapeo NO fue aplicado explícitamente, NO cargar appliedMappings');
+      return {};
+    }
 
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
@@ -151,11 +194,19 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
 
     console.log('💾 Buscando mapeos en TODAS las keys de sessionStorage...');
 
-    // Primero verificar si el mapeo fue EXPLÍCITAMENTE aplicado
-    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
+    // CRÍTICO: Verificar el flag correcto según el tipo de archivo
+    const storageKey = fileType === 'sumas_saldos'
+      ? `mappingApplied_${executionId}-ss`
+      : `mappingApplied_${executionId}`;
+
+    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
     const wasExplicitlyApplied = mappingAppliedFlag === 'true';
 
-    console.log('🔍 Mapeo explícitamente aplicado?', wasExplicitlyApplied);
+    console.log(`🔍 Mapeo explícitamente aplicado? (${fileType}):`, {
+      storageKey,
+      mappingAppliedFlag,
+      wasExplicitlyApplied
+    });
 
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
@@ -178,21 +229,23 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
           }
 
           if (Object.keys(mappings).length > 0) {
-            console.log(' RESTAURANDO', Object.keys(mappings).length, 'MAPEOS desde key:', key);
+            console.log(` RESTAURANDO ${Object.keys(mappings).length} mapeos desde key: ${key}`);
 
-            // Solo marcar como aplicado si fue explícitamente aplicado
+            // CRÍTICO: Solo marcar como aplicado si fue explícitamente aplicado
             if (wasExplicitlyApplied) {
               appliedMappingsRef.current = mappings;
               setFieldMappings(mappings);
               setShowMappedNames(true);
               setShowMappedPreview(true);
-              console.log('✅ Preview mapeado activado (mapeo fue aplicado explícitamente)');
+              console.log('✅ Preview mapeado activado (mapeo fue aplicado explícitamente con botón "Aplicar Mapeo")');
             } else {
-              // Solo cargar los mapeos sin activar el preview mapeado
-              setFieldMappings(mappings);
-              setShowMappedNames(false);  // Asegurar que NO muestra nombres mapeados
-              setShowMappedPreview(false); // Asegurar que NO muestra preview mapeado
-              console.log('⚠️ Mapeos cargados pero preview NO mapeado (falta aplicar mapeo)');
+              // NO cargar los mapeos visuales si no fueron aplicados explícitamente
+              // Los mapeos están en sessionStorage para FieldMapper, pero NO para el preview
+              setFieldMappings({});  // NO cargar mapeos visuales
+              setShowMappedNames(false);
+              setShowMappedPreview(false);
+              console.log('⚠️ Mapeos encontrados en sessionStorage pero NO aplicados explícitamente');
+              console.log('   Preview permanece ORIGINAL hasta que usuario haga click en "Aplicar Mapeo"');
             }
             return wasExplicitlyApplied;
           }
@@ -210,7 +263,16 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     let url;
 
     if (fileType === 'sumas_saldos') {
-      url = `/api/import/preview-sumas-saldos/${encodeURIComponent(executionId)}/original?_=${Date.now()}`;
+      // CRÍTICO: Para Sumas y Saldos, usar endpoint correcto según forceOriginal
+      if (!forceOriginal && showMappedPreview) {
+        // Preview MAPEADO (usa sumas_saldos_csv_path)
+        url = `/api/import/preview-sumas-saldos/${encodeURIComponent(executionId)}?_=${Date.now()}`;
+        console.log('📄 Cargando preview MAPEADO de Sumas y Saldos');
+      } else {
+        // Preview ORIGINAL (usa sumas_saldos_raw_path)
+        url = `/api/import/preview-sumas-saldos/${encodeURIComponent(executionId)}/original?_=${Date.now()}`;
+        console.log('📄 Cargando preview ORIGINAL de Sumas y Saldos');
+      }
     } else {
       // Si forceOriginal es true, siempre cargar el original
       if (!forceOriginal && showMappedPreview) {

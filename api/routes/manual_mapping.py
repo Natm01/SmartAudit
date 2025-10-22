@@ -260,12 +260,23 @@ async def apply_manual_mapping(execution_id: str, mapping_request: ManualMapping
             updated_mapeo_results['report_file'] = regenerated_files['report_file']
         
         # Update execution
-        execution_service.update_execution(
-            execution_id,
-            mapeo_results=updated_mapeo_results,
-            manual_mapping_required=False,  # Manual mapping completed
-            unmapped_fields_count=0
-        )
+        # CRÍTICO: También actualizar output_file en el execution para que el preview pueda encontrarlo
+        update_params = {
+            "mapeo_results": updated_mapeo_results,
+            "manual_mapping_required": False,  # Manual mapping completed
+            "unmapped_fields_count": 0
+        }
+
+        # Si se generó un archivo manual mapeado, actualizar los campos del execution
+        if regenerated_files.get('output_file'):
+            update_params["output_file"] = regenerated_files['output_file']
+            update_params["manual_mapeo_output_file"] = regenerated_files['output_file']
+            print(f"✅ MANUAL MAPPING: Actualizando execution.output_file: {regenerated_files['output_file']}")
+
+        if regenerated_files.get('report_file'):
+            update_params["manual_mapeo_report_file"] = regenerated_files['report_file']
+
+        execution_service.update_execution(execution_id, **update_params)
         
         print(f"BUGS - MANUAL MAPPING: Applied {len(applied_mappings)} manual mappings successfully")
         
