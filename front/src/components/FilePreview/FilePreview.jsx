@@ -31,9 +31,11 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
           const parsed = JSON.parse(savedMappings);
 
           let mappings = {};
-          if (fileType === 'libro_diario') {
-            mappings = parsed.mappings || parsed;
+          // FieldMapper siempre guarda con estructura { mappings: {...}, confidences: {...} }
+          if (parsed.mappings) {
+            mappings = parsed.mappings;
           } else {
+            // Formato antiguo (solo por compatibilidad)
             mappings = parsed;
           }
 
@@ -84,9 +86,11 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
           const parsed = JSON.parse(savedMappings);
 
           let mappings = {};
-          if (fileType === 'libro_diario') {
-            mappings = parsed.mappings || parsed;
+          // FieldMapper siempre guarda con estructura { mappings: {...}, confidences: {...} }
+          if (parsed.mappings) {
+            mappings = parsed.mappings;
           } else {
+            // Formato antiguo (solo por compatibilidad)
             mappings = parsed;
           }
 
@@ -165,9 +169,11 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
           console.log(`💾 Contenido:`, parsed);
 
           let mappings = {};
-          if (fileType === 'libro_diario') {
-            mappings = parsed.mappings || parsed;
+          // FieldMapper siempre guarda con estructura { mappings: {...}, confidences: {...} }
+          if (parsed.mappings) {
+            mappings = parsed.mappings;
           } else {
+            // Formato antiguo (solo por compatibilidad)
             mappings = parsed;
           }
 
