@@ -71,6 +71,8 @@ export const AuthProvider = ({ children }) => {
         const idToken = response.idToken;
 
         try {
+          console.log('🔄 Solicitando datos del usuario desde:', `${config.portalApiUrl}/api/v1/users/me`);
+
           const apiResponse = await fetch(`${config.portalApiUrl}/api/v1/users/me`, {
             method: 'GET',
             headers: {
@@ -79,24 +81,42 @@ export const AuthProvider = ({ children }) => {
             },
           });
 
+          console.log('📡 Respuesta del backend:', {
+            status: apiResponse.status,
+            statusText: apiResponse.statusText,
+            ok: apiResponse.ok,
+          });
+
           if (apiResponse.ok) {
             const data = await apiResponse.json();
+            console.log('✅ Datos recibidos del backend:', data);
+
             // Asegurar que siempre tengamos el campo id
             const mergedData = {
               ...parsed,
               ...data,
             };
+
             // Si el backend no retorna id, usar el que extrajimos del email
             if (!mergedData.id && parsed.id) {
               mergedData.id = parsed.id;
             }
+
+            console.log('✅ Contexto de usuario final:', mergedData);
             setUserContext(mergedData);
           } else {
-            console.error('❌ Error en la respuesta del backend');
+            const errorText = await apiResponse.text();
+            console.error('❌ Error en la respuesta del backend:', {
+              status: apiResponse.status,
+              statusText: apiResponse.statusText,
+              body: errorText,
+            });
+            console.log('⚠️ Usando datos parseados del token como fallback');
             setUserContext(parsed);
           }
         } catch (error) {
           console.error('❌ Error obteniendo user-context:', error);
+          console.log('⚠️ Usando datos parseados del token como fallback');
           setUserContext(parsed);
         }
       } else {
