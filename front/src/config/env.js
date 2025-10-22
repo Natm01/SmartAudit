@@ -43,7 +43,7 @@ const getEnvironment = () => {
 const API_URLS = {
   development: {
     proto: 'http://localhost:8001/smau-proto',
-    portal: 'http://localhost:8000/smau-portal',
+    portal: 'https://devapi.grantthornton.es/smau-portal',
   },
   dev: {
     proto: 'https://devapi.grantthornton.es/smau-proto',
