@@ -282,7 +282,7 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Proyecto + Año Fiscal + Fechas */}
         <div className="grid grid-cols-1 lg:grid-cols-8 gap-4">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Proyecto <span className="text-red-500">*</span>
             </label>
@@ -321,7 +321,7 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
             {errors.fiscalYear && <p className="text-xs text-red-600 mt-1">{errors.fiscalYear}</p>}
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha Inicio <span className="text-red-500">*</span>
             </label>
@@ -337,7 +337,7 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
             {errors.fechaInicio && <p className="text-xs text-red-600 mt-1">{errors.fechaInicio}</p>}
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha Fin <span className="text-red-500">*</span>
             </label>
