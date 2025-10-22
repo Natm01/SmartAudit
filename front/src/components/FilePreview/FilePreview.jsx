@@ -432,6 +432,28 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     });
   }, [showMappedPreview, fieldMappings]);
 
+  // 🆕 NUEVO: Notificar al padre cuando se carga el componente con mapeo ya aplicado
+  useEffect(() => {
+    // Solo ejecutar una vez al montar
+    if (!executionId || !onMappingApplied) return;
+
+    // Verificar si el mapeo fue aplicado (basado en el flag de sessionStorage)
+    const storageKey = fileType === 'sumas_saldos'
+      ? `mappingApplied_${executionId}-ss`
+      : `mappingApplied_${executionId}`;
+
+    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+    const wasApplied = mappingAppliedFlag === 'true';
+
+    if (wasApplied) {
+      console.log(`✅ FilePreview: Mapeo fue aplicado previamente, notificando al padre (${fileType})`);
+      // Notificar al padre para que habilite el botón de validación
+      onMappingApplied(true);
+    } else {
+      console.log(`ℹ️ FilePreview: Mapeo NO aplicado, NO notificar al padre (${fileType})`);
+    }
+  }, []); // Solo ejecutar al montar (dependencias vacías)
+
   //  MODIFICADO: Evitar recargas innecesarias
   useEffect(() => { 
     if (executionId) {
