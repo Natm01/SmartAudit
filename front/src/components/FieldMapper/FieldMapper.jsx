@@ -288,8 +288,13 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
 
         // Marcar el mapeo como explícitamente aplicado en sessionStorage
         try {
-          sessionStorage.setItem(`mappingApplied_${executionId}`, 'true');
-          console.log('✅ Guardado flag de mapeo aplicado en sessionStorage');
+          // CORREGIDO: Guardar con sufijo correcto según tipo de archivo
+          const storageKey = fileType === 'sumas_saldos'
+            ? `mappingApplied_${executionId}-ss`  // Con sufijo -ss para Sumas y Saldos
+            : `mappingApplied_${executionId}`;    // Sin sufijo para Libro Diario
+
+          sessionStorage.setItem(storageKey, 'true');
+          console.log(`✅ Guardado flag de mapeo aplicado: ${storageKey}`);
         } catch (error) {
           console.warn('Could not save mapping applied flag:', error);
         }

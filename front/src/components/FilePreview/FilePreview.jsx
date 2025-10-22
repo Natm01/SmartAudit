@@ -422,7 +422,13 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
 
       // Guardar en sessionStorage que el mapeo fue aplicado
       try {
-        sessionStorage.setItem(`mappingApplied_${executionId}`, 'true');
+        // CORREGIDO: Guardar con sufijo correcto según tipo de archivo
+        const storageKey = fileType === 'sumas_saldos'
+          ? `mappingApplied_${executionId}-ss`  // Con sufijo -ss para Sumas y Saldos
+          : `mappingApplied_${executionId}`;    // Sin sufijo para Libro Diario
+
+        sessionStorage.setItem(storageKey, 'true');
+        console.log(`✅ FilePreview: Guardado flag de mapeo aplicado: ${storageKey}`);
       } catch (error) {
         console.warn('Could not save mapping applied status:', error);
       }
