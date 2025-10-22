@@ -282,7 +282,7 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Proyecto + Año Fiscal + Fechas */}
         <div className="grid grid-cols-1 lg:grid-cols-8 gap-4">
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-5">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Proyecto <span className="text-red-500">*</span>
             </label>
@@ -303,9 +303,9 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
             {errors.projectId && <p className="text-xs text-red-600 mt-1">{errors.projectId}</p>}
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Año Fiscal (FiscalYear) <span className="text-red-500">*</span>
+              Año Fiscal <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -314,7 +314,7 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
               className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
                 errors.fiscalYear ? 'border-red-300' : 'border-gray-300'
               }`}
-              placeholder="Ej: 2024"
+              placeholder="2024"
               min="1900"
               max={new Date().getFullYear() + 10}
             />
@@ -371,6 +371,7 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
             isMultiple={false}
             error={errors.sumasSaldos}
             required={true}
+            extraHint="Solo se aceptan archivos en formato 1000.25"
           />
         </div>
 
