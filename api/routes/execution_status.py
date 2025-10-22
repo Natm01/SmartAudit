@@ -4,7 +4,7 @@ Execution Status Routes - Generic endpoint to get execution information
 """
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from services.execution_service import get_execution_service
@@ -57,6 +57,39 @@ class ExecutionStatusResponse(BaseModel):
     
     # Errors
     error: Optional[str] = None
+
+
+class FileMetadata(BaseModel):
+    """Metadata de un archivo"""
+    file_name: str
+    file_size: Optional[int] = None  # Tamaño en bytes
+    file_extension: Optional[str] = None  # Extensión (.csv, .xlsx, etc.)
+    file_path: Optional[str] = None
+
+
+class ImportDetailsResponse(BaseModel):
+    """Respuesta completa con todos los detalles de importación"""
+    execution_id: str
+
+    # Información del proyecto
+    project_id: Optional[str] = None
+    fiscal_year: Optional[str] = None
+    fecha_inicio: Optional[str] = None
+    fecha_final: Optional[str] = None
+
+    # Archivo Libro Diario
+    libro_diario: Optional[FileMetadata] = None
+
+    # Archivo Sumas y Saldos
+    sumas_saldos: Optional[FileMetadata] = None
+
+    # Estado de procesamiento
+    status: str
+    step: Optional[str] = None
+    created_at: str
+    updated_at: str
+    error: Optional[str] = None
+
 
 # ==========================================
 # ENDPOINT: Get Execution Status
@@ -171,9 +204,103 @@ async def get_coordinated_executions_status(execution_id: str):
             }
         
         return result
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting coordinated executions: {str(e)}"
+        )
+
+
+# ==========================================
+# ENDPOINT: Get Import Details
+# ==========================================
+
+@router.get("/import-details/{execution_id}", response_model=ImportDetailsResponse)
+async def get_import_details(execution_id: str):
+    """
+    Obtiene todos los datos de la importación del Libro Diario, incluyendo:
+    - Proyecto
+    - Año fiscal
+    - Fecha inicio
+    - Fecha final
+    - Nombre del archivo Libro diario y todos sus metadatos (peso, extensión)
+    - Nombre del archivo Sumas y saldos y todos sus metadatos (peso, extensión)
+    - El execution id asignado
+    """
+    execution_service = get_execution_service()
+
+    try:
+        # Obtener la ejecución principal
+        execution = execution_service.get_execution(execution_id)
+
+        # Extraer fechas del campo period (formato: "YYYY-MM-DD a YYYY-MM-DD")
+        fecha_inicio = None
+        fecha_final = None
+        fiscal_year = None
+
+        if execution.period:
+            try:
+                # Parsear el periodo para extraer fechas
+                parts = execution.period.split(" a ")
+                if len(parts) == 2:
+                    fecha_inicio = parts[0].strip()
+                    fecha_final = parts[1].strip()
+                    # Extraer el año fiscal de la fecha de inicio
+                    fiscal_year = fecha_inicio.split("-")[0]
+            except:
+                pass
+
+        # Crear metadata del Libro Diario
+        libro_diario_metadata = None
+        if execution.file_name:
+            libro_diario_metadata = FileMetadata(
+                file_name=execution.file_name,
+                file_size=getattr(execution, 'file_size', None),
+                file_extension=getattr(execution, 'file_extension', None),
+                file_path=execution.file_path
+            )
+
+        # Buscar Sumas y Saldos relacionado
+        sumas_saldos_metadata = None
+        try:
+            # Intentar encontrar la ejecución de Sumas y Saldos relacionada
+            ss_execution_id = f"{execution_id}-ss"
+            ss_execution = execution_service.get_execution(ss_execution_id)
+
+            if ss_execution:
+                sumas_saldos_metadata = FileMetadata(
+                    file_name=getattr(ss_execution, 'file_name', None),
+                    file_size=getattr(ss_execution, 'file_size', None),
+                    file_extension=getattr(ss_execution, 'file_extension', None),
+                    file_path=getattr(ss_execution, 'file_path', None)
+                )
+        except:
+            # Si no existe Sumas y Saldos, continuar sin error
+            pass
+
+        # Construir respuesta
+        response = ImportDetailsResponse(
+            execution_id=execution_id,
+            project_id=getattr(execution, 'project_id', None),
+            fiscal_year=fiscal_year,
+            fecha_inicio=fecha_inicio,
+            fecha_final=fecha_final,
+            libro_diario=libro_diario_metadata,
+            sumas_saldos=sumas_saldos_metadata,
+            status=execution.status,
+            step=getattr(execution, 'step', None),
+            created_at=execution.created_at,
+            updated_at=execution.updated_at,
+            error=getattr(execution, 'error', None)
+        )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo detalles de importación: {str(e)}"
         )

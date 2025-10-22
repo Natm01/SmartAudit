@@ -186,7 +186,8 @@ class ExecutionService:
             'status', 'step', 'file_path', 'result_path', 'error', 'stats',
             'file_type', 'test_type', 'project_id', 'period', 'parent_execution_id',
             'mapeo_results', 'manual_mapping_required', 'unmapped_fields_count',
-            'file_name', 
+            'file_name',
+            'file_size', 'file_extension',  # Metadatos del archivo
             'output_file',  # 🆕 AGREGAR ESTA LÍNEA
             'validation_rules_results',  # 🆕 AGREGAR ESTA LÍNEA
             'sumas_saldos_raw_path', 'sumas_saldos_status', 'sumas_saldos_mapping',
