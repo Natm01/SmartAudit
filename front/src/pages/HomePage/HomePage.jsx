@@ -104,7 +104,7 @@ const HomePage = () => {
           {userContext && !userContext.error && (
             <div className="text-center mb-8 animate-fade-in">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
-                Bienvenido, {userContext.name || userContext.email?.split('@')[0]}
+                Bienvenido, {userContext.displayName || userContext.username?.split('@')[0] || userContext.email?.split('@')[0]}
               </h2>
               <p className="text-sm text-gray-500">
                 {userContext.environment} • {userContext.userType}
