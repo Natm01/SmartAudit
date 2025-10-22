@@ -8,21 +8,101 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Inicializar showMappedPreview desde sessionStorage
+  // Inicializar showMappedPreview y fieldMappings desde sessionStorage
   const getInitialMappedPreviewState = () => {
     if (!executionId) return false;
     const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
     return mappingAppliedFlag === 'true';
   };
 
-  const [fieldMappings, setFieldMappings] = useState({});
+  const getInitialFieldMappings = () => {
+    if (!executionId) return {};
+
+    // Solo cargar mapeos si el mapeo fue aplicado
+    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
+    if (mappingAppliedFlag !== 'true') return {};
+
+    // Buscar mapeos en sessionStorage
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes(executionId) && key.includes('fieldMappings')) {
+        try {
+          const savedMappings = sessionStorage.getItem(key);
+          const parsed = JSON.parse(savedMappings);
+
+          let mappings = {};
+          if (fileType === 'libro_diario') {
+            mappings = parsed.mappings || parsed;
+          } else {
+            mappings = parsed;
+          }
+
+          if (Object.keys(mappings).length > 0) {
+            // Reconstruir mapeos en formato correcto para preview mapeado
+            // Los mapeos guardados son {columnaExcel: campoBD}
+            // Pero para el preview mapeado necesitamos {campoBD: campoBD}
+            const reconstructedMappings = {};
+            Object.entries(mappings).forEach(([excelCol, bdField]) => {
+              if (bdField) {
+                reconstructedMappings[bdField] = bdField;
+              }
+            });
+
+            console.log('🎨 Inicializando fieldMappings desde sessionStorage:');
+            console.log('   Mapeos originales:', mappings);
+            console.log('   Mapeos reconstruidos:', reconstructedMappings);
+
+            return reconstructedMappings;
+          }
+        } catch (e) {
+          console.error('❌ Error al parsear mapeos iniciales:', e);
+        }
+      }
+    }
+    return {};
+  };
+
+  const [fieldMappings, setFieldMappings] = useState(getInitialFieldMappings());
   const [showMappedNames, setShowMappedNames] = useState(getInitialMappedPreviewState());
   const [isMapperOpen, setIsMapperOpen] = useState(showMapperByDefault);
   const [showAppliedNotification, setShowAppliedNotification] = useState(false);
 
   const [showMappedPreview, setShowMappedPreview] = useState(getInitialMappedPreviewState());
-  
-  const appliedMappingsRef = useRef({});
+
+  // Inicializar appliedMappingsRef desde sessionStorage
+  const getInitialAppliedMappings = () => {
+    if (!executionId) return {};
+
+    const mappingAppliedFlag = sessionStorage.getItem(`mappingApplied_${executionId}`);
+    if (mappingAppliedFlag !== 'true') return {};
+
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes(executionId) && key.includes('fieldMappings')) {
+        try {
+          const savedMappings = sessionStorage.getItem(key);
+          const parsed = JSON.parse(savedMappings);
+
+          let mappings = {};
+          if (fileType === 'libro_diario') {
+            mappings = parsed.mappings || parsed;
+          } else {
+            mappings = parsed;
+          }
+
+          if (Object.keys(mappings).length > 0) {
+            console.log('📌 Inicializando appliedMappingsRef desde sessionStorage:', mappings);
+            return mappings;
+          }
+        } catch (e) {
+          console.error('❌ Error al parsear appliedMappings iniciales:', e);
+        }
+      }
+    }
+    return {};
+  };
+
+  const appliedMappingsRef = useRef(getInitialAppliedMappings());
   const isApplyingMappingRef = useRef(false);
   const initialMappingsLoadedRef = useRef(false);
   //  NUEVO: Flag para evitar recargas innecesarias
@@ -167,19 +247,24 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       setLoading(true);
       setError(null);
 
+      let wasApplied = false;
+      let loadedMappings = {};
+
       //  Si es la primera carga, intentar cargar mapeos
       if (!initialMappingsLoadedRef.current) {
         console.log('🔄 Primera carga - buscando mapeos...');
-        const wasExplicitlyApplied = loadMappingsFromStorage();
+        wasApplied = loadMappingsFromStorage();
+
+        // Obtener los mapeos cargados
+        loadedMappings = { ...appliedMappingsRef.current };
+
         initialMappingsLoadedRef.current = true;
 
-        if (wasExplicitlyApplied) {
-          console.log(' Mapeos cargados - esperando actualización de estados...');
-          //  Esperar más tiempo para que React actualice TODOS los estados
-          await new Promise(resolve => setTimeout(resolve, 300));
-        } else {
-          console.log('⚠️ Mapeos NO aplicados explícitamente - forzando preview original');
-        }
+        console.log('📊 Estado después de cargar mapeos:', {
+          wasApplied,
+          loadedMappingsCount: Object.keys(loadedMappings).length,
+          showMappedPreview
+        });
       }
 
       // CRÍTICO: Determinar si debe cargar preview mapeado
@@ -198,21 +283,27 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       console.log('🔍 forceOriginal:', forceOriginal, '(hasMappingApplied:', hasMappingApplied, ')');
       const t = await fetchPreviewOnce(forceOriginal);
       if (abortRef.current) return;
-      
+
       if (t.headers.length === 0 || t.table.length === 0) {
         throw new Error('No se encontraron datos en el archivo procesado');
       }
-      
+
       console.log('📊 Headers del preview:', t.headers);
-      
+
       setPreviewData(t);
-      
+
       //  IMPORTANTE: Marcar que ya se cargó el preview
       previewLoadedRef.current = true;
 
       //  Solo reconstruir mapeos si el mapeo fue EXPLÍCITAMENTE aplicado
       // Verificar tanto el estado como appliedMappingsRef
       const shouldShowMapped = Object.keys(appliedMappingsRef.current).length > 0;
+
+      console.log('🎨 Verificando si debe reconstruir mapeos:', {
+        shouldShowMapped,
+        showMappedPreview,
+        willReconstruct: shouldShowMapped && showMappedPreview
+      });
 
       if (shouldShowMapped && showMappedPreview) {
         console.log('🔄 Reconstruyendo mapeos visuales (mapeo aplicado explícitamente)...');
@@ -226,11 +317,14 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
         });
 
         console.log(' Total reconstruido:', Object.keys(reconstructedMappings).length);
+        console.log('🗺️ Mapeos reconstruidos:', reconstructedMappings);
         setFieldMappings(reconstructedMappings);
       } else {
         console.log('ℹ️ Preview original - mapeo no aplicado explícitamente');
+        console.log('   shouldShowMapped:', shouldShowMapped);
+        console.log('   showMappedPreview:', showMappedPreview);
       }
-      
+
       retryCountRef.current = 0;
     } catch (e) {
       if (abortRef.current) return;
