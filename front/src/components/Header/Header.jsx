@@ -73,7 +73,7 @@ const Header = ({ user, onUserChange }) => {
               <div className="flex items-center space-x-3">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-gray-900">
-                    {userContext.displayName}
+                    {userContext.displayName || getNameFromEmail(userContext.username || userContext.email)}
                     </p>
                   <p className="text-xs text-gray-500">
                     {userContext.tenantName || userContext.tenantSlug || 'Tenant desconocido'} •{' '}
@@ -93,7 +93,7 @@ const Header = ({ user, onUserChange }) => {
                     onClick={() => setShowUserSelector(!showUserSelector)}
                     className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
                   >
-                    {getUserInitials(userContext.displayName)}
+                    {getUserInitials(userContext.displayName || getNameFromEmail(userContext.username || userContext.email))}
                   </div>
 
                 {/* Dropdown de usuarios */}
@@ -104,11 +104,11 @@ const Header = ({ user, onUserChange }) => {
                       <div className="p-4 border-b border-gray-200 bg-purple-50">
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                            {getUserInitials(userContext.displayName)}
+                            {getUserInitials(userContext.displayName || getNameFromEmail(userContext.username || userContext.email))}
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">
-                              {userContext.displayName}
+                              {userContext.displayName || getNameFromEmail(userContext.username || userContext.email)}
                             </p>
                             <p className="text-xs text-gray-600">{userContext.email}</p>
                             <p className="text-xs text-purple-600 mt-1">
