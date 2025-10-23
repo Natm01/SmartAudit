@@ -1,5 +1,5 @@
 // frontend/src/components/ImportForm/ImportForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const ImportForm = ({ projects, onSubmit, loading }) => {
   const [formData, setFormData] = useState({
@@ -12,10 +12,49 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
   });
   const [dragActive, setDragActive] = useState({ libroDiario: false, sumasSaldos: false });
   const [errors, setErrors] = useState({});
+  const [projectSearch, setProjectSearch] = useState('');
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const projectDropdownRef = useRef(null);
+
+  // Cerrar dropdown cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(event.target)) {
+        setShowProjectDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+  };
+
+  // Filtrar proyectos basado en la búsqueda
+  const filteredProjects = projects.filter(project =>
+    project.name.toLowerCase().includes(projectSearch.toLowerCase())
+  );
+
+  // Manejar selección de proyecto
+  const handleProjectSelect = (project) => {
+    setSelectedProject(project);
+    setProjectSearch(project.name);
+    setFormData(prev => ({ ...prev, projectId: project._id }));
+    setShowProjectDropdown(false);
+    if (errors.projectId) setErrors(prev => ({ ...prev, projectId: null }));
+  };
+
+  // Manejar cambio en el input de búsqueda
+  const handleProjectSearchChange = (value) => {
+    setProjectSearch(value);
+    setShowProjectDropdown(true);
+    if (!value) {
+      setSelectedProject(null);
+      setFormData(prev => ({ ...prev, projectId: '' }));
+    }
   };
 
   const handleDrag = (e, type) => {
@@ -282,24 +321,44 @@ const ImportForm = ({ projects, onSubmit, loading }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Proyecto + Año Fiscal + Fechas */}
         <div className="grid grid-cols-1 lg:grid-cols-8 gap-4">
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-5" ref={projectDropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Proyecto <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formData.projectId}
-              onChange={(e) => handleInputChange('projectId', e.target.value)}
-              className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                errors.projectId ? 'border-red-300' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Seleccionar proyecto...</option>
-              {projects.map((project) => (
-                <option key={project._id} value={project._id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                type="text"
+                value={projectSearch}
+                onChange={(e) => handleProjectSearchChange(e.target.value)}
+                onFocus={() => setShowProjectDropdown(true)}
+                placeholder="Buscar proyecto..."
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
+                  errors.projectId ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {showProjectDropdown && filteredProjects.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredProjects.map((project) => (
+                    <div
+                      key={project._id}
+                      onClick={() => handleProjectSelect(project)}
+                      className={`px-3 py-2 text-sm cursor-pointer hover:bg-purple-50 ${
+                        selectedProject?._id === project._id ? 'bg-purple-100' : ''
+                      }`}
+                    >
+                      {project.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showProjectDropdown && projectSearch && filteredProjects.length === 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    No se encontraron proyectos
+                  </div>
+                </div>
+              )}
+            </div>
             {errors.projectId && <p className="text-xs text-red-600 mt-1">{errors.projectId}</p>}
           </div>
 
