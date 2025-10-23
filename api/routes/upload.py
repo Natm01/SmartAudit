@@ -10,10 +10,12 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, BackgroundTasks, Form
 
 from models.execution import UploadResponse
+from models.project import ProjectDataMinimal
 from services.execution_service import get_execution_service
 from services.storage.azure_storage_service import get_azure_storage_service
 from services.audit_service import get_audit_service
 from config.settings import get_settings
+import json
 
 # Prefijo correcto que espera el frontend
 router = APIRouter(prefix="/smau-proto/api/import", tags=["upload"])
@@ -113,26 +115,39 @@ def get_original_filename(upload_file: UploadFile) -> str:
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
-    background_tasks: BackgroundTasks, 
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     test_type: Optional[str] = Form("libro_diario_import"),
     project_id: Optional[str] = Form(None),
     period: Optional[str] = Form(None),
-    parent_execution_id: Optional[str] = Form(None)  # Para coordinar IDs entre LD y SS
+    parent_execution_id: Optional[str] = Form(None),  # Para coordinar IDs entre LD y SS
+    project_data: Optional[str] = Form(None)  # JSON string con datos del proyecto del Portal API
 ):
     """
     Upload a file for processing with structured naming and coordinated IDs
-    
+
     Args:
         file: El archivo a subir
         test_type: Tipo de test (libro_diario_import, sumas_saldos_import)
         project_id: ID del proyecto
         period: Período de la prueba
         parent_execution_id: ID de ejecución padre para coordinar con Sumas y Saldos
+        project_data: JSON string con datos del proyecto del Portal API (/api/v1/users/me/projects)
+                     Debe contener: tenant_id, workspace_id, user_id, project_id, etc.
     """
     settings = get_settings()
     execution_service = get_execution_service()
-    
+
+    # Parsear datos del proyecto si se proporcionan
+    parsed_project_data: Optional[ProjectDataMinimal] = None
+    if project_data:
+        try:
+            project_data_dict = json.loads(project_data)
+            parsed_project_data = ProjectDataMinimal(**project_data_dict)
+        except Exception as e:
+            print(f"⚠️  Error parseando project_data: {e}")
+            # Continuar sin project_data si falla el parseo
+
     original_filename = get_original_filename(file)
     file_ext = os.path.splitext(original_filename)[1].lower()
     
@@ -287,19 +302,32 @@ async def upload_file(
                 buffer.write(file_content)
         
         # Actualizar la ejecución con metadata adicional
-        execution_service.update_execution(
-            execution_id,
-            file_path=file_path,
-            file_name=original_filename,
-            file_type=file_type,
-            test_type=test_type,
-            project_id=project_id,
-            period=period,
-            parent_execution_id=parent_execution_id,
-            file_size=final_file_size,
-            file_extension=file_extension
-        )
-        
+        update_data = {
+            "file_path": file_path,
+            "file_name": original_filename,
+            "file_type": file_type,
+            "test_type": test_type,
+            "project_id": project_id,
+            "period": period,
+            "parent_execution_id": parent_execution_id,
+            "file_size": final_file_size,
+            "file_extension": file_extension
+        }
+
+        # Agregar datos del proyecto si están disponibles
+        if parsed_project_data:
+            update_data.update({
+                "tenant_id": parsed_project_data.tenant_id,
+                "workspace_id": parsed_project_data.workspace_id,
+                "user_id": parsed_project_data.user_id,
+                "username": parsed_project_data.username,
+                "project_code": parsed_project_data.project_code,
+                "project_name": parsed_project_data.project_name,
+                "main_entity_name": parsed_project_data.main_entity_name
+            })
+
+        execution_service.update_execution(execution_id, **update_data)
+
         # Para Sumas y Saldos, también actualizar sumas_saldos_raw_path
         if file_type == "Sys":
             execution_service.update_execution(
@@ -322,6 +350,12 @@ async def upload_file(
                 tb_extension = None
                 tb_size = None
 
+                # Obtener datos del proyecto (si están disponibles)
+                audit_tenant_id = parsed_project_data.tenant_id if parsed_project_data else None
+                audit_workspace_id = parsed_project_data.workspace_id if parsed_project_data else None
+                audit_user_id = parsed_project_data.user_id if parsed_project_data else None
+                audit_project_id = parsed_project_data.project_id if parsed_project_data else int(project_id) if project_id and project_id.isdigit() else None
+
                 if file_type == "Je":
                     # Libro Diario (Journal Entry)
                     je_original_name = original_filename
@@ -329,20 +363,26 @@ async def upload_file(
                     je_extension = file_extension.lstrip('.')
                     je_size = final_file_size
 
-                    # Registrar auditoría para JE
-                    audit_id = audit_service.register_import_execution(
-                        project_id=int(project_id),
-                        period=period,
-                        je_original_file_name=je_original_name,
-                        je_file_name=je_file_name,
-                        je_file_extension=je_extension,
-                        je_file_size_bytes=je_size,
-                        external_gid=execution_id,
-                        correlation_id=execution_id
-                    )
+                    # Registrar auditoría para JE con datos reales del proyecto
+                    if audit_project_id:
+                        audit_id = audit_service.register_import_execution(
+                            project_id=audit_project_id,
+                            period=period,
+                            je_original_file_name=je_original_name,
+                            je_file_name=je_file_name,
+                            je_file_extension=je_extension,
+                            je_file_size_bytes=je_size,
+                            tenant_id=audit_tenant_id,
+                            workspace_id=audit_workspace_id,
+                            auth_user_id=audit_user_id,
+                            external_gid=execution_id,
+                            correlation_id=execution_id
+                        )
 
-                    if audit_id:
-                        print(f"✓ Auditoría registrada con ID: {audit_id}")
+                        if audit_id:
+                            print(f"✓ Auditoría registrada con ID: {audit_id}")
+                    else:
+                        print(f"⚠️  No se pudo determinar project_id para auditoría")
 
                 elif file_type == "Sys" and parent_execution_id:
                     # Trial Balance con parent - obtener datos del JE
@@ -361,24 +401,44 @@ async def upload_file(
                         tb_extension = file_extension.lstrip('.')
                         tb_size = final_file_size
 
-                        # Registrar auditoría con ambos archivos
-                        audit_id = audit_service.register_import_execution(
-                            project_id=int(project_id),
-                            period=period,
-                            je_original_file_name=je_original_name,
-                            je_file_name=je_file_name,
-                            je_file_extension=je_extension,
-                            je_file_size_bytes=je_size,
-                            tb_original_file_name=tb_original_name,
-                            tb_file_name=tb_file_name,
-                            tb_file_extension=tb_extension,
-                            tb_file_size_bytes=tb_size,
-                            external_gid=parent_execution_id,  # Usar el ID del padre como GUID
-                            correlation_id=execution_id
-                        )
+                        # Usar datos del proyecto del padre si no están disponibles aquí
+                        if not audit_tenant_id and hasattr(parent_execution, 'tenant_id') and parent_execution.tenant_id:
+                            audit_tenant_id = parent_execution.tenant_id
+                        if not audit_workspace_id and hasattr(parent_execution, 'workspace_id') and parent_execution.workspace_id:
+                            audit_workspace_id = parent_execution.workspace_id
+                        if not audit_user_id and hasattr(parent_execution, 'user_id') and parent_execution.user_id:
+                            audit_user_id = parent_execution.user_id
+                        if not audit_project_id and hasattr(parent_execution, 'project_id') and parent_execution.project_id:
+                            # El project_id en parent_execution puede ser string
+                            try:
+                                audit_project_id = int(parent_execution.project_id) if isinstance(parent_execution.project_id, str) and parent_execution.project_id.isdigit() else parent_execution.project_id
+                            except:
+                                pass
 
-                        if audit_id:
-                            print(f"✓ Auditoría JE+TB registrada con ID: {audit_id}")
+                        # Registrar auditoría con ambos archivos
+                        if audit_project_id:
+                            audit_id = audit_service.register_import_execution(
+                                project_id=audit_project_id,
+                                period=period,
+                                je_original_file_name=je_original_name,
+                                je_file_name=je_file_name,
+                                je_file_extension=je_extension,
+                                je_file_size_bytes=je_size,
+                                tb_original_file_name=tb_original_name,
+                                tb_file_name=tb_file_name,
+                                tb_file_extension=tb_extension,
+                                tb_file_size_bytes=tb_size,
+                                tenant_id=audit_tenant_id,
+                                workspace_id=audit_workspace_id,
+                                auth_user_id=audit_user_id,
+                                external_gid=parent_execution_id,  # Usar el ID del padre como GUID
+                                correlation_id=execution_id
+                            )
+
+                            if audit_id:
+                                print(f"✓ Auditoría JE+TB registrada con ID: {audit_id}")
+                        else:
+                            print(f"⚠️  No se pudo determinar project_id para auditoría JE+TB")
 
                     except Exception as e:
                         print(f"⚠️  No se pudo obtener datos del parent para auditoría: {e}")

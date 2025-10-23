@@ -33,14 +33,28 @@ SmartAudit utiliza **Azure SQL Database** para registrar auditorías de las impo
 Usuario → POST /smau-proto/api/import/upload
          ├─ file: archivo CSV/XLSX
          ├─ test_type: "libro_diario_import"
-         ├─ project_id: ID del proyecto
-         └─ period: "2024-12"
+         ├─ project_id: "1441"
+         ├─ period: "2024-12"
+         └─ project_data: JSON string con datos del Portal API
+             {
+               "tenant_id": 100,
+               "workspace_id": 100,
+               "user_id": 1186,
+               "username": "user@example.com",
+               "project_id": 1441,
+               "project_code": "00041476",
+               "project_name": "00041476 | 24-25 | A | 31/12/24 | EMPRESA",
+               "main_entity_name": "EMPRESA, S.A."
+             }
 
          ↓
 
 Upload exitoso → Registro en Azure SQL
          ├─ Je data: nombre, tamaño, extensión
          ├─ TB data: NULL (aún no se ha subido)
+         ├─ tenant_id: 100 (del Portal API)
+         ├─ workspace_id: 100 (del Portal API)
+         ├─ user_id: 1186 (del Portal API)
          └─ Retorna: audit_id
 ```
 
@@ -50,17 +64,52 @@ Upload exitoso → Registro en Azure SQL
 Usuario → POST /smau-proto/api/import/upload
          ├─ file: archivo CSV/XLSX
          ├─ test_type: "sumas_saldos_import"
-         ├─ project_id: ID del proyecto
+         ├─ project_id: "1441"
          ├─ period: "2024-12"
-         └─ parent_execution_id: ID del Journal Entry
+         ├─ parent_execution_id: ID del Journal Entry
+         └─ project_data: JSON string (opcional, se hereda del padre)
 
          ↓
 
 Upload exitoso → Obtiene datos del padre
          ├─ Busca execution del Journal Entry
+         ├─ Hereda tenant_id, workspace_id, user_id del padre
          ├─ Combina datos de ambos archivos
          └─ Registra en Azure SQL con JE + TB
 ```
+
+### Origen de los Datos del Proyecto
+
+Los datos del proyecto (tenant_id, workspace_id, user_id, project_id, etc.) provienen del endpoint del Portal API externo:
+
+```
+GET /api/v1/users/me/projects?pageSize=100&pageNumber=1
+```
+
+Respuesta:
+```json
+{
+  "items": [
+    {
+      "id": 11336,
+      "tenant_id": 100,
+      "workspace_id": 100,
+      "user_id": 1186,
+      "username": "usuario@example.com",
+      "project_id": 1441,
+      "project_code": "00041476",
+      "project_name": "00041476 | 24-25 | A | 31/12/24 | EMPRESA, S.A.",
+      "main_entity_name": "EMPRESA, S.A.",
+      ...
+    }
+  ]
+}
+```
+
+El frontend debe:
+1. Obtener el proyecto seleccionado del dropdown
+2. Extraer los campos necesarios
+3. Enviarlos como JSON string en el parámetro `project_data` del upload
 
 ## Configuración
 

@@ -29,6 +29,15 @@ class ExecutionStatus(BaseModel):
     project_id: Optional[str] = None
     period: Optional[str] = None
     parent_execution_id: Optional[str] = None  # Para vincular SS con LD
+
+    # Datos del proyecto (del Portal API /api/v1/users/me/projects)
+    tenant_id: Optional[int] = None
+    workspace_id: Optional[int] = None
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+    project_code: Optional[str] = None
+    project_name: Optional[str] = None
+    main_entity_name: Optional[str] = None
     
     # Campos para mapeo manual (Libro Diario)
     mapeo_results: Optional[Dict[str, Any]] = None
