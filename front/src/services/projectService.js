@@ -32,7 +32,9 @@ class ProjectService {
 
         // Transformar y agregar los proyectos de esta página
         const transformedProjects = projectsData.map(project => ({
-          _id: project.projectId.toString(),
+          // Usar el ID único de la asignación user-project (no projectId que se repite)
+          _id: project.id.toString(),
+          projectId: project.projectId.toString(),
           id: project.projectCode,
           name: project.projectName,
           // Datos adicionales que pueden ser útiles
@@ -68,12 +70,23 @@ class ProjectService {
         console.warn(`⚠️ Se alcanzó el límite de seguridad de ${MAX_PAGES} páginas`);
       }
 
-      console.log(`🎉 Total de proyectos cargados: ${allProjects.length} de ${totalCount}`);
+      // Deduplicar proyectos por projectId (mantener solo el primero de cada proyecto)
+      const uniqueProjects = [];
+      const seenProjectIds = new Set();
+
+      for (const project of allProjects) {
+        if (!seenProjectIds.has(project.projectId)) {
+          seenProjectIds.add(project.projectId);
+          uniqueProjects.push(project);
+        }
+      }
+
+      console.log(`🎉 Total de proyectos cargados: ${allProjects.length} (${uniqueProjects.length} únicos)`);
 
       return {
         success: true,
-        projects: allProjects,
-        total: totalCount || allProjects.length
+        projects: uniqueProjects,
+        total: uniqueProjects.length
       };
     } catch (error) {
       console.error('❌ Error fetching projects from Portal API:', error);
@@ -91,7 +104,9 @@ class ProjectService {
       // Como el API no tiene un endpoint específico para un proyecto,
       // obtenemos todos y filtramos
       const allProjects = await this.getAllProjects();
-      const project = allProjects.projects.find(p => p._id === projectId || p.id === projectId);
+      const project = allProjects.projects.find(
+        p => p._id === projectId || p.projectId === projectId || p.id === projectId
+      );
 
       if (!project) {
         throw new Error(`Project with ID '${projectId}' not found`);
