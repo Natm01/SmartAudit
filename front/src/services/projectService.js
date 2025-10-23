@@ -8,43 +8,72 @@ class ProjectService {
    */
   async getAllProjects() {
     try {
-      // Solicitar todos los proyectos en una sola llamada con pageSize grande
+      let allProjects = [];
+      let currentPage = 1;
+      let totalCount = 0;
+      const MAX_PAGES = 20; // Límite de seguridad para evitar bucle infinito
+
       console.log('📥 Obteniendo todos los proyectos del usuario...');
 
-      const response = await portalApi.get('/api/v1/users/me/projects?pageSize=1000&pageNumber=1');
+      // Obtener todas las páginas de proyectos
+      while (currentPage <= MAX_PAGES) {
+        const response = await portalApi.get(`/api/v1/users/me/projects?pageSize=100&pageNumber=${currentPage}`);
 
-      const projectsData = response.data.items || [];
+        const projectsData = response.data.items || [];
+        totalCount = response.data.totalCount || 0;
 
-      console.log(`📦 Total de proyectos en respuesta: ${projectsData.length} de ${response.data.totalCount}`);
+        // Si no hay proyectos en esta página, salir del bucle
+        if (projectsData.length === 0) {
+          console.log('✅ No hay más proyectos');
+          break;
+        }
 
-      // Transformar los datos de la respuesta al formato esperado por el frontend
-      const projects = projectsData.map(project => ({
-        _id: project.projectId.toString(),
-        id: project.projectCode,
-        name: project.projectName,
-        // Datos adicionales que pueden ser útiles
-        role: project.roleName,
-        office: project.officeName,
-        department: project.departmentName,
-        client: project.mainEntityName,
-        service: project.serviceName,
-        status: project.projectStateName,
-        stateCategory: project.projectStateCategoryName,
-        // Mantener todos los datos originales por si se necesitan
-        ...project
-      }));
+        console.log(`📥 Página ${currentPage}: ${projectsData.length} proyectos`);
 
-      console.log(`✅ Loaded ${projects.length} of ${response.data.totalCount} projects from Portal API`);
+        // Transformar y agregar los proyectos de esta página
+        const transformedProjects = projectsData.map(project => ({
+          _id: project.projectId.toString(),
+          id: project.projectCode,
+          name: project.projectName,
+          // Datos adicionales que pueden ser útiles
+          role: project.roleName,
+          office: project.officeName,
+          department: project.departmentName,
+          client: project.mainEntityName,
+          service: project.serviceName,
+          status: project.projectStateName,
+          stateCategory: project.projectStateCategoryName,
+          // Mantener todos los datos originales por si se necesitan
+          ...project
+        }));
 
-      // Si hay más proyectos que el límite, mostrar advertencia
-      if (response.data.hasNextPage) {
-        console.warn(`⚠️ Hay más proyectos disponibles (${response.data.totalCount} en total). Considera aumentar el pageSize o implementar paginación completa.`);
+        allProjects = [...allProjects, ...transformedProjects];
+
+        // Verificar si ya tenemos todos los proyectos
+        if (allProjects.length >= totalCount) {
+          console.log(`✅ Obtenidos todos los proyectos: ${allProjects.length}/${totalCount}`);
+          break;
+        }
+
+        // Verificar si hay más páginas
+        if (!response.data.hasNextPage) {
+          console.log('✅ No hay más páginas');
+          break;
+        }
+
+        currentPage++;
       }
+
+      if (currentPage > MAX_PAGES) {
+        console.warn(`⚠️ Se alcanzó el límite de seguridad de ${MAX_PAGES} páginas`);
+      }
+
+      console.log(`🎉 Total de proyectos cargados: ${allProjects.length} de ${totalCount}`);
 
       return {
         success: true,
-        projects: projects,
-        total: response.data.totalCount || projects.length
+        projects: allProjects,
+        total: totalCount || allProjects.length
       };
     } catch (error) {
       console.error('❌ Error fetching projects from Portal API:', error);
