@@ -10,10 +10,33 @@ class ProjectService {
     try {
       const response = await portalApi.get('/api/v1/users/me/projects');
 
+      // Debug: ver la estructura de la respuesta
+      console.log('📦 Portal API Response:', response.data);
+      console.log('📦 Response type:', typeof response.data);
+      console.log('📦 Is array?:', Array.isArray(response.data));
+
+      // La respuesta puede ser un array directamente o estar envuelta en un objeto
+      let projectsData = response.data;
+
+      // Si no es un array, intentar obtenerlo de diferentes propiedades comunes
+      if (!Array.isArray(projectsData)) {
+        projectsData = projectsData.projects || projectsData.data || projectsData.results || [];
+      }
+
+      // Verificar que ahora sí tenemos un array
+      if (!Array.isArray(projectsData)) {
+        console.error('❌ La respuesta no contiene un array de proyectos:', projectsData);
+        return {
+          success: false,
+          projects: [],
+          total: 0
+        };
+      }
+
       // Transformar los datos de la respuesta al formato esperado por el frontend
       // Respuesta del API: [{ project_id, project_name, ... }]
       // Formato esperado: [{ _id, name, ... }]
-      const projects = response.data.map(project => ({
+      const projects = projectsData.map(project => ({
         _id: project.project_id.toString(),
         id: project.project_code,
         name: project.project_name,
