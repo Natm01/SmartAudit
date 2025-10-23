@@ -14,13 +14,22 @@ class Settings(BaseSettings):
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
-    
+
     # Azure Storage settings
     use_azure_storage: bool = True
     azure_storage_connection_string: str = ""
     azure_storage_container: Optional[str] = None
     azure_storage_account_url: Optional[str] = None
     azure_storage_sas_token: Optional[str] = None
+
+    # Azure SQL Database settings
+    azure_sql_server: str = ""
+    azure_sql_database: str = ""
+    azure_sql_connection_string: str = ""  # Opcional, para fallback
+    azure_sql_tenant_id: int = 101
+    azure_sql_workspace_id: int = 101
+    azure_sql_default_user_id: int = 1
+    azure_sql_audit_enabled: bool = True
     
     # CSV filename for compatibility
     csv_filename: Optional[str] = None

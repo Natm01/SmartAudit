@@ -1,4 +1,4 @@
-# routes/upload.py 
+# routes/upload.py
 """
 Upload routes with Azure Storage integration optimized for large files
 Con nombres estructurados y coordinación de IDs
@@ -12,6 +12,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, status, Backgrou
 from models.execution import UploadResponse
 from services.execution_service import get_execution_service
 from services.storage.azure_storage_service import get_azure_storage_service
+from services.audit_service import get_audit_service
 from config.settings import get_settings
 
 # Prefijo correcto que espera el frontend
@@ -305,7 +306,87 @@ async def upload_file(
                 execution_id,
                 sumas_saldos_raw_path=file_path
             )
-        
+
+        # Registrar en auditoría si está habilitado
+        if settings.azure_sql_audit_enabled and project_id and period and final_file_size:
+            try:
+                audit_service = get_audit_service()
+
+                # Preparar datos comunes
+                je_original_name = None
+                je_file_name = None
+                je_extension = None
+                je_size = None
+                tb_original_name = None
+                tb_file_name = None
+                tb_extension = None
+                tb_size = None
+
+                if file_type == "Je":
+                    # Libro Diario (Journal Entry)
+                    je_original_name = original_filename
+                    je_file_name = f"{execution_id}_{os.path.splitext(original_filename)[0]}_{file_type}"
+                    je_extension = file_extension.lstrip('.')
+                    je_size = final_file_size
+
+                    # Registrar auditoría para JE
+                    audit_id = audit_service.register_import_execution(
+                        project_id=int(project_id),
+                        period=period,
+                        je_original_file_name=je_original_name,
+                        je_file_name=je_file_name,
+                        je_file_extension=je_extension,
+                        je_file_size_bytes=je_size,
+                        external_gid=execution_id,
+                        correlation_id=execution_id
+                    )
+
+                    if audit_id:
+                        print(f"✓ Auditoría registrada con ID: {audit_id}")
+
+                elif file_type == "Sys" and parent_execution_id:
+                    # Trial Balance con parent - obtener datos del JE
+                    try:
+                        parent_execution = execution_service.get_execution(parent_execution_id)
+
+                        # Datos del Journal Entry (del padre)
+                        je_original_name = parent_execution.file_name
+                        je_file_name = f"{parent_execution_id}_{os.path.splitext(parent_execution.file_name)[0]}_Je"
+                        je_extension = parent_execution.file_extension.lstrip('.') if parent_execution.file_extension else 'csv'
+                        je_size = parent_execution.file_size or 0
+
+                        # Datos del Trial Balance (actual)
+                        tb_original_name = original_filename
+                        tb_file_name = f"{execution_id}_{os.path.splitext(original_filename)[0]}_{file_type}"
+                        tb_extension = file_extension.lstrip('.')
+                        tb_size = final_file_size
+
+                        # Registrar auditoría con ambos archivos
+                        audit_id = audit_service.register_import_execution(
+                            project_id=int(project_id),
+                            period=period,
+                            je_original_file_name=je_original_name,
+                            je_file_name=je_file_name,
+                            je_file_extension=je_extension,
+                            je_file_size_bytes=je_size,
+                            tb_original_file_name=tb_original_name,
+                            tb_file_name=tb_file_name,
+                            tb_file_extension=tb_extension,
+                            tb_file_size_bytes=tb_size,
+                            external_gid=parent_execution_id,  # Usar el ID del padre como GUID
+                            correlation_id=execution_id
+                        )
+
+                        if audit_id:
+                            print(f"✓ Auditoría JE+TB registrada con ID: {audit_id}")
+
+                    except Exception as e:
+                        print(f"⚠️  No se pudo obtener datos del parent para auditoría: {e}")
+
+            except Exception as e:
+                # No fallar el upload si la auditoría falla
+                print(f"⚠️  Error registrando auditoría: {e}")
+
         message = "Large file upload started in background" if file_path.startswith("uploading_to_azure://") else "File uploaded successfully"
         
         # Obtener nombre y extensión para el log
