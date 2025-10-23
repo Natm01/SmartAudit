@@ -8,55 +8,43 @@ class ProjectService {
    */
   async getAllProjects() {
     try {
-      let allProjects = [];
-      let currentPage = 1;
-      let hasMorePages = true;
+      // Solicitar todos los proyectos en una sola llamada con pageSize grande
+      console.log('📥 Obteniendo todos los proyectos del usuario...');
 
-      // Obtener todas las páginas de proyectos
-      while (hasMorePages) {
-        console.log(`📥 Obteniendo página ${currentPage} de proyectos...`);
+      const response = await portalApi.get('/api/v1/users/me/projects?pageSize=1000&pageNumber=1');
 
-        const response = await portalApi.get('/api/v1/users/me/projects', {
-          params: {
-            pageNumber: currentPage,
-            pageSize: 100 // Solicitar 100 proyectos por página
-          }
-        });
+      const projectsData = response.data.items || [];
 
-        const projectsData = response.data.items || [];
+      console.log(`📦 Total de proyectos en respuesta: ${projectsData.length} de ${response.data.totalCount}`);
 
-        // Transformar y agregar los proyectos de esta página
-        const transformedProjects = projectsData.map(project => ({
-          _id: project.projectId.toString(),
-          id: project.projectCode,
-          name: project.projectName,
-          // Datos adicionales que pueden ser útiles
-          role: project.roleName,
-          office: project.officeName,
-          department: project.departmentName,
-          client: project.mainEntityName,
-          service: project.serviceName,
-          status: project.projectStateName,
-          stateCategory: project.projectStateCategoryName,
-          // Mantener todos los datos originales por si se necesitan
-          ...project
-        }));
+      // Transformar los datos de la respuesta al formato esperado por el frontend
+      const projects = projectsData.map(project => ({
+        _id: project.projectId.toString(),
+        id: project.projectCode,
+        name: project.projectName,
+        // Datos adicionales que pueden ser útiles
+        role: project.roleName,
+        office: project.officeName,
+        department: project.departmentName,
+        client: project.mainEntityName,
+        service: project.serviceName,
+        status: project.projectStateName,
+        stateCategory: project.projectStateCategoryName,
+        // Mantener todos los datos originales por si se necesitan
+        ...project
+      }));
 
-        allProjects = [...allProjects, ...transformedProjects];
+      console.log(`✅ Loaded ${projects.length} of ${response.data.totalCount} projects from Portal API`);
 
-        // Verificar si hay más páginas
-        hasMorePages = response.data.hasNextPage;
-        currentPage++;
-
-        console.log(`✅ Página ${currentPage - 1}: ${transformedProjects.length} proyectos (Total acumulado: ${allProjects.length})`);
+      // Si hay más proyectos que el límite, mostrar advertencia
+      if (response.data.hasNextPage) {
+        console.warn(`⚠️ Hay más proyectos disponibles (${response.data.totalCount} en total). Considera aumentar el pageSize o implementar paginación completa.`);
       }
-
-      console.log(`🎉 Total de proyectos cargados: ${allProjects.length}`);
 
       return {
         success: true,
-        projects: allProjects,
-        total: allProjects.length
+        projects: projects,
+        total: response.data.totalCount || projects.length
       };
     } catch (error) {
       console.error('❌ Error fetching projects from Portal API:', error);
