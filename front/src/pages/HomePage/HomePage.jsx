@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ApplicationCard from '../../components/ApplicationCard/ApplicationCard';
+import DatabaseTestButton from '../../components/DatabaseTestButton/DatabaseTestButton';
 import applicationService from '../../services/applicationService';
 
 const HomePage = () => {
@@ -111,7 +112,17 @@ const HomePage = () => {
               </p>
             </div>
           )}
-          
+
+          {/* Database Connection Test Section */}
+          <div className="mb-8 flex justify-center">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 max-w-2xl w-full">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">
+                Diagnóstico de Conexión
+              </h3>
+              <DatabaseTestButton />
+            </div>
+          </div>
+
           {/* Applications section */}
           <section className="animate-fade-in">
             <div className="text-center mb-6">
