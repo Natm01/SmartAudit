@@ -41,11 +41,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="SmartAudit Proto API",
     description="API para SmartAudit Portal - Python 3.11 con FastAPI integrado con Portal Web",
-    version="1.0.0",
-    root_path="/smau-proto",
-    docs_url="/smau-proto/docs",
-    redoc_url="/smau-proto/redoc",
-    openapi_url="/smau-proto/openapi.json"
+    version="1.0.0"
 )
 
 # Configurar CORS para dominios smartaudit.com
