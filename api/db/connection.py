@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SERVER = os.getenv("DB_SERVER", "tu-servidor.database.windows.net")
-DATABASE = os.getenv("DB_NAME", "tu-base-datos")
+SERVER = os.getenv("AZURE_SQL_SERVER")
+DATABASE = os.getenv("AZURE_SQL_DATABASE")
 
 
 def get_connection_string():
