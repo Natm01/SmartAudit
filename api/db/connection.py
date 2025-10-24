@@ -12,6 +12,11 @@ SERVER = os.getenv("DB_SERVER", "tu-servidor.database.windows.net")
 DATABASE = os.getenv("DB_NAME", "tu-base-datos")
 
 
+def is_azure_environment():
+    """Detecta si estamos ejecutando en Azure"""
+    return bool(os.environ.get('WEBSITE_INSTANCE_ID'))
+
+
 def get_connection_string():
     """
     Genera la cadena de conexión según el ambiente
@@ -21,11 +26,33 @@ def get_connection_string():
     base = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};"
 
     # Si estamos en Azure
-    if os.environ.get('WEBSITE_INSTANCE_ID'):
+    if is_azure_environment():
         return base + "Authentication=ActiveDirectoryMsi;"
     # Si estamos en local
     else:
         return base + "Authentication=ActiveDirectoryInteractive;"
+
+
+def get_diagnostic_info():
+    """Obtiene información de diagnóstico del ambiente"""
+    try:
+        drivers = pyodbc.drivers()
+    except:
+        drivers = ["Error obteniendo drivers"]
+
+    return {
+        "environment": "Azure" if is_azure_environment() else "Local",
+        "server": SERVER,
+        "database": DATABASE,
+        "auth_type": "ActiveDirectoryMsi" if is_azure_environment() else "ActiveDirectoryInteractive",
+        "odbc_drivers": drivers,
+        "env_vars": {
+            "DB_SERVER": os.getenv("DB_SERVER", "NOT_SET"),
+            "DB_NAME": os.getenv("DB_NAME", "NOT_SET"),
+            "WEBSITE_INSTANCE_ID": os.getenv("WEBSITE_INSTANCE_ID", "NOT_SET"),
+            "CONTAINER_APP_NAME": os.getenv("CONTAINER_APP_NAME", "NOT_SET")
+        }
+    }
 
 
 @contextmanager
