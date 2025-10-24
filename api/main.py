@@ -26,6 +26,7 @@ from routes.execution_status import router as execution_status_router
 from routes import validation_rules
 from routes import database_upload
 from routes import sumas_saldos_validation
+from routes import database
 
 # Configurar logging
 logging.basicConfig(
@@ -94,6 +95,7 @@ app.include_router(validation_rules.router)
 
 app.include_router(database_upload.router)
 app.include_router(sumas_saldos_validation.router)
+app.include_router(database.router)
 
 # Modelos Pydantic
 class HealthResponse(BaseModel):
