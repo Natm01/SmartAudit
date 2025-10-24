@@ -80,9 +80,61 @@ const DatabaseTestButton = () => {
               )}
 
               {!result.success && (
-                <p className="text-sm text-red-700">
-                  {result.error || 'Error desconocido'}
-                </p>
+                <div className="text-sm text-red-700 space-y-2">
+                  <p className="font-semibold">
+                    {typeof result.error === 'string'
+                      ? result.error
+                      : result.error?.error_message || 'Error desconocido'}
+                  </p>
+
+                  {typeof result.error === 'object' && result.error?.diagnostics && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-red-600 hover:text-red-800 font-semibold">
+                        Ver información de diagnóstico
+                      </summary>
+                      <div className="mt-3 text-xs bg-gray-50 p-3 rounded border border-gray-200 space-y-2">
+                        <div>
+                          <strong>Ambiente:</strong> {result.error.diagnostics.environment}
+                        </div>
+                        <div>
+                          <strong>Tipo de autenticación:</strong> {result.error.diagnostics.auth_type}
+                        </div>
+                        <div>
+                          <strong>Servidor:</strong> {result.error.diagnostics.server}
+                        </div>
+                        <div>
+                          <strong>Base de datos:</strong> {result.error.diagnostics.database}
+                        </div>
+                        <div>
+                          <strong>Drivers ODBC disponibles:</strong>
+                          <ul className="list-disc list-inside ml-2">
+                            {result.error.diagnostics.odbc_drivers?.map((driver, idx) => (
+                              <li key={idx}>{driver}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+                            Variables de entorno
+                          </summary>
+                          <pre className="mt-2 text-xs bg-white p-2 rounded border overflow-auto">
+                            {JSON.stringify(result.error.diagnostics.env_vars, null, 2)}
+                          </pre>
+                        </details>
+                        {result.error.traceback && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+                              Stack trace completo
+                            </summary>
+                            <pre className="mt-2 text-xs bg-white p-2 rounded border overflow-auto max-h-48 font-mono">
+                              {result.error.traceback}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </div>
               )}
             </div>
           </div>
