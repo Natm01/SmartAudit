@@ -14,19 +14,32 @@ class Settings(BaseSettings):
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
-    
+
     # Azure Storage settings
     use_azure_storage: bool = True
     azure_storage_connection_string: str = ""
     azure_storage_container: Optional[str] = None
     azure_storage_account_url: Optional[str] = None
     azure_storage_sas_token: Optional[str] = None
-    
+
     # CSV filename for compatibility
     csv_filename: Optional[str] = None
-    
+
     # Local directories (used as fallback or temp)
-    base_dir: Path = Path(__file__).parent.parent
+    @property
+    def base_dir(self) -> Path:
+        """
+        Get base directory for file operations.
+        In Azure App Service, use /tmp (writable) instead of /app (read-only)
+        """
+        # Detectar si estamos en Azure App Service
+        if os.getenv('WEBSITE_INSTANCE_ID'):
+            # En Azure App Service, usar /tmp que es writable
+            return Path('/tmp')
+        else:
+            # En local o contenedor Docker normal
+            return Path(__file__).parent.parent
+
     upload_dir: str = "uploads"
     predictions_dir: str = "predictions"
     processed_dir: str = "processed"
