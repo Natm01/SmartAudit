@@ -196,20 +196,12 @@ async def try_execute_audit_test_sp(
 
         # Determinar file_type_code basado en la extensión
         je_ext = getattr(je_execution, 'file_extension', '.csv').lower()
-        if je_ext == '.xlsx':
-            je_file_type_code = 'XLSX'
-        elif je_ext == '.xls':
-            je_file_type_code = 'XLS'
-        else:
-            je_file_type_code = 'CSV'
+        # Por ahora usar CSV para todos los archivos
+        je_file_type_code = 'CSV'
 
         tb_ext = getattr(tb_execution, 'file_extension', '.csv').lower()
-        if tb_ext == '.xlsx':
-            tb_file_type_code = 'XLSX'
-        elif tb_ext == '.xls':
-            tb_file_type_code = 'XLS'
-        else:
-            tb_file_type_code = 'CSV'
+        # Por ahora usar CSV para todos los archivos
+        tb_file_type_code = 'CSV'
 
         # Ejecutar el SP
         result = audit_service.insert_audit_test_exec_je_analysis(
