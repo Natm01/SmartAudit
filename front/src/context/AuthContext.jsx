@@ -83,9 +83,15 @@ export const AuthProvider = ({ children }) => {
 
           if (apiResponse.ok) {
             const data = await apiResponse.json();
+            console.log('✅ Datos recibidos de /api/v1/users/me:', data);
+            console.log('✅ Campos disponibles:', Object.keys(data));
             setUserContext({
               ...parsed,
               ...data, // ← mezclamos los datos del backend con los roles
+            });
+            console.log('✅ userContext final:', {
+              ...parsed,
+              ...data
             });
           } else {
             console.error('❌ Error en la respuesta del backend');
