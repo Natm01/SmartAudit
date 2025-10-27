@@ -22,7 +22,8 @@ from routes.manual_mapping import router as manual_mapping_router
 from routes.preview import router as preview_router
 from routes.sumas_saldos import router as sumas_saldos_router
 from routes.sumas_saldos_manual_mapping import router as sumas_saldos_manual_mapping_router
-from routes.execution_status import router as execution_status_router 
+from routes.execution_status import router as execution_status_router
+from routes.audit_test import router as audit_test_router
 from routes import validation_rules
 from routes import database_upload
 from routes import sumas_saldos_validation
@@ -89,6 +90,9 @@ app.include_router(sumas_saldos_manual_mapping_router)
 
 # Execution Status Router
 app.include_router(execution_status_router)
+
+# Audit Test Router
+app.include_router(audit_test_router)
 
 # Validation Rules Router
 app.include_router(validation_rules.router)
