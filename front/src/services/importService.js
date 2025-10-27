@@ -20,18 +20,21 @@ class ImportService {
     sumasSaldosFile,
     projectId,
     period,
-    testType = 'libro_diario_import'
+    additionalParams = {}  // Nuevo: parámetros adicionales del usuario
   ) {
     try {
       if (!libroDiarioFiles || libroDiarioFiles.length === 0) {
         return { success: false, error: 'Debe adjuntar al menos un archivo de Libro Diario' };
       }
 
+      const testType = 'libro_diario_import';
+
       const primaryResult = await this._uploadPrimaryLibroDiario(
         libroDiarioFiles[0],
         projectId,
         period,
-        testType
+        testType,
+        additionalParams  // Pasar parámetros adicionales
       );
       if (!primaryResult.success) return primaryResult;
 
@@ -42,7 +45,8 @@ class ImportService {
         executionIdLD,
         projectId,
         period,
-        testType
+        testType,
+        additionalParams  // Pasar parámetros adicionales
       );
 
       let sumasResult = null;
@@ -51,7 +55,8 @@ class ImportService {
           sumasSaldosFile,
           executionIdLD,
           projectId,
-          period
+          period,
+          additionalParams  // Pasar parámetros adicionales
         );
       }
 
@@ -73,13 +78,36 @@ class ImportService {
     }
   }
 
-  async _uploadPrimaryLibroDiario(file, projectId, period, testType) {
+  async _uploadPrimaryLibroDiario(file, projectId, period, testType, additionalParams = {}) {
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('project_id', projectId);
       formData.append('period', period);
       formData.append('test_type', testType);
+
+      // Agregar parámetros adicionales para el SP
+      if (additionalParams.auth_user_id) {
+        formData.append('auth_user_id', additionalParams.auth_user_id.toString());
+      }
+      if (additionalParams.tenant_id) {
+        formData.append('tenant_id', additionalParams.tenant_id.toString());
+      }
+      if (additionalParams.workspace_id) {
+        formData.append('workspace_id', additionalParams.workspace_id.toString());
+      }
+      if (additionalParams.fiscal_year) {
+        formData.append('fiscal_year', additionalParams.fiscal_year.toString());
+      }
+      if (additionalParams.period_beginning_date) {
+        formData.append('period_beginning_date', additionalParams.period_beginning_date);
+      }
+      if (additionalParams.period_ending_date) {
+        formData.append('period_ending_date', additionalParams.period_ending_date);
+      }
+      if (additionalParams.language_code) {
+        formData.append('language_code', additionalParams.language_code);
+      }
 
       const response = await api.post('/api/import/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -98,7 +126,7 @@ class ImportService {
     }
   }
 
-  async _uploadAdditionalLibroDiarioFiles(files, parentExecutionId, projectId, period, testType) {
+  async _uploadAdditionalLibroDiarioFiles(files, parentExecutionId, projectId, period, testType, additionalParams = {}) {
     const results = [];
     for (const file of files) {
       try {
@@ -108,6 +136,29 @@ class ImportService {
         formData.append('period', period);
         formData.append('test_type', testType);
         formData.append('parent_execution_id', parentExecutionId);
+
+        // Agregar parámetros adicionales para el SP
+        if (additionalParams.auth_user_id) {
+          formData.append('auth_user_id', additionalParams.auth_user_id.toString());
+        }
+        if (additionalParams.tenant_id) {
+          formData.append('tenant_id', additionalParams.tenant_id.toString());
+        }
+        if (additionalParams.workspace_id) {
+          formData.append('workspace_id', additionalParams.workspace_id.toString());
+        }
+        if (additionalParams.fiscal_year) {
+          formData.append('fiscal_year', additionalParams.fiscal_year.toString());
+        }
+        if (additionalParams.period_beginning_date) {
+          formData.append('period_beginning_date', additionalParams.period_beginning_date);
+        }
+        if (additionalParams.period_ending_date) {
+          formData.append('period_ending_date', additionalParams.period_ending_date);
+        }
+        if (additionalParams.language_code) {
+          formData.append('language_code', additionalParams.language_code);
+        }
 
         const response = await api.post('/api/import/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -124,7 +175,7 @@ class ImportService {
     return results;
   }
 
-  async _uploadSumasSaldos(file, parentExecutionId, projectId, period) {
+  async _uploadSumasSaldos(file, parentExecutionId, projectId, period, additionalParams = {}) {
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -132,6 +183,29 @@ class ImportService {
       formData.append('period', period);
       formData.append('test_type', 'sumas_saldos');
       formData.append('parent_execution_id', parentExecutionId);
+
+      // Agregar parámetros adicionales para el SP
+      if (additionalParams.auth_user_id) {
+        formData.append('auth_user_id', additionalParams.auth_user_id.toString());
+      }
+      if (additionalParams.tenant_id) {
+        formData.append('tenant_id', additionalParams.tenant_id.toString());
+      }
+      if (additionalParams.workspace_id) {
+        formData.append('workspace_id', additionalParams.workspace_id.toString());
+      }
+      if (additionalParams.fiscal_year) {
+        formData.append('fiscal_year', additionalParams.fiscal_year.toString());
+      }
+      if (additionalParams.period_beginning_date) {
+        formData.append('period_beginning_date', additionalParams.period_beginning_date);
+      }
+      if (additionalParams.period_ending_date) {
+        formData.append('period_ending_date', additionalParams.period_ending_date);
+      }
+      if (additionalParams.language_code) {
+        formData.append('language_code', additionalParams.language_code);
+      }
 
       const response = await api.post('/api/import/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
