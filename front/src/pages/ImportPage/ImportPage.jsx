@@ -107,20 +107,36 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
       console.log('🔍 Campos disponibles:', Object.keys(userContext || {}));
 
       // Validar que tenemos los datos del usuario
-      if (!userContext || !userContext.user_id || !userContext.tenant_id || !userContext.workspace_id) {
-        console.error('❌ Faltan campos en userContext:', {
-          user_id: userContext?.user_id,
-          tenant_id: userContext?.tenant_id,
-          workspace_id: userContext?.workspace_id
-        });
+      if (!userContext || !userContext.userId) {
+        console.error('❌ No hay userId en userContext');
         setError('No se pudo obtener la información del usuario. Por favor, recarga la página.');
         return;
       }
 
       // Extraer datos del usuario
-      const auth_user_id = userContext.user_id;
-      const tenant_id = userContext.tenant_id;
-      const workspace_id = userContext.workspace_id;
+      const auth_user_id = userContext.userId;
+
+      // Obtener el proyecto seleccionado para extraer tenant_id y workspace_id
+      const selectedProject = projects.find(p => p._id === projectId || p.projectId === parseInt(projectId));
+
+      console.log('🔍 Proyecto seleccionado:', selectedProject);
+
+      // Prioridad: usar tenantId/workspaceId del proyecto si existen, sino del usuario
+      const tenant_id = selectedProject?.tenantId || userContext.tenantId;
+      const workspace_id = selectedProject?.workspaceId || userContext.workspaceId;
+
+      console.log('✅ IDs a usar:', {
+        auth_user_id,
+        tenant_id,
+        workspace_id,
+        source: selectedProject?.tenantId ? 'proyecto' : 'usuario'
+      });
+
+      if (!tenant_id || !workspace_id) {
+        console.error('❌ Faltan tenant_id o workspace_id');
+        setError('No se pudo obtener el tenant o workspace. Por favor, intenta de nuevo.');
+        return;
+      }
 
       // Limpiar cache antes de empezar nueva importación
       cleanupValidationCache();
