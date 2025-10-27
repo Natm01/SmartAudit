@@ -64,6 +64,7 @@ class UploadResponse(BaseModel):
     execution_id: str
     file_name: str
     message: str
+    sp_params: Optional[Dict[str, Any]] = None  # Parámetros enviados al SP para debugging
 
 class ValidationResponse(BaseModel):
     """Validation response model"""

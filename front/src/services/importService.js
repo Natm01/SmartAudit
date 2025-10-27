@@ -113,6 +113,21 @@ class ImportService {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
+      // Si el backend devuelve sp_params, mostrarlos en consola
+      if (response?.data?.sp_params) {
+        console.log('================================================================================');
+        console.log('📋 PARÁMETROS DEL SP sp_insert_audit_test_exec_je_analysis:');
+        console.log('================================================================================');
+        console.log('👤 Usuario y Contexto:', response.data.sp_params.usuario_y_contexto);
+        console.log('📅 Período:', response.data.sp_params.periodo);
+        console.log('💾 Storage:', response.data.sp_params.storage);
+        console.log('📄 Journal Entry (JE):', response.data.sp_params.journal_entry);
+        console.log('📊 Trial Balance (TB):', response.data.sp_params.trial_balance);
+        console.log('🔧 Opcionales:', response.data.sp_params.opcionales);
+        console.log('✅ Resultado del SP:', response.data.sp_params.resultado_sp);
+        console.log('================================================================================');
+      }
+
       return {
         success: true,
         executionId: response?.data?.execution_id,
@@ -210,6 +225,21 @@ class ImportService {
       const response = await api.post('/api/import/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+
+      // Si el backend devuelve sp_params, mostrarlos en consola
+      if (response?.data?.sp_params) {
+        console.log('================================================================================');
+        console.log('📋 PARÁMETROS DEL SP sp_insert_audit_test_exec_je_analysis:');
+        console.log('================================================================================');
+        console.log('👤 Usuario y Contexto:', response.data.sp_params.usuario_y_contexto);
+        console.log('📅 Período:', response.data.sp_params.periodo);
+        console.log('💾 Storage:', response.data.sp_params.storage);
+        console.log('📄 Journal Entry (JE):', response.data.sp_params.journal_entry);
+        console.log('📊 Trial Balance (TB):', response.data.sp_params.trial_balance);
+        console.log('🔧 Opcionales:', response.data.sp_params.opcionales);
+        console.log('✅ Resultado del SP:', response.data.sp_params.resultado_sp);
+        console.log('================================================================================');
+      }
 
       return {
         success: true,
