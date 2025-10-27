@@ -28,32 +28,20 @@ def query_audit_test_exec(limit=10):
             conn.autocommit = True
             cursor = conn.cursor()
 
-            # Query para obtener los últimos registros
+            # Query para obtener los últimos registros (solo columnas que existen)
             query = f"""
                 SELECT TOP {limit}
                     id,
+                    external_gid,
                     tenant_id,
                     workspace_id,
                     project_id,
-                    external_gid,
-                    period_beginning_date,
-                    period_ending_date,
-                    fiscal_year,
-                    storage_relative_path,
-                    je_file_type_code,
-                    je_file_data_structure_type_code,
-                    je_original_file_name,
-                    je_file_name,
-                    je_file_extension,
-                    je_file_size_bytes,
-                    tb_file_type_code,
-                    tb_file_data_structure_type_code,
-                    tb_original_file_name,
-                    tb_file_name,
-                    tb_file_extension,
-                    tb_file_size_bytes,
+                    audit_test_id,
+                    name,
                     created_at,
-                    created_by_user_id
+                    created_by,
+                    updated_at,
+                    updated_by
                 FROM workspace.audit_test_exec
                 ORDER BY id DESC
             """
@@ -73,43 +61,19 @@ def query_audit_test_exec(limit=10):
                 print(f"{'=' * 100}")
                 print(f"📋 INFORMACIÓN GENERAL:")
                 print(f"   - ID: {row.id}")
+                print(f"   - External GID: {row.external_gid}")
                 print(f"   - Tenant ID: {row.tenant_id}")
                 print(f"   - Workspace ID: {row.workspace_id}")
                 print(f"   - Project ID: {row.project_id}")
-                print(f"   - External GID: {row.external_gid or 'NULL'}")
-                print()
-
-                print(f"📅 PERÍODO:")
-                print(f"   - Fecha inicio: {row.period_beginning_date}")
-                print(f"   - Fecha fin: {row.period_ending_date}")
-                print(f"   - Año fiscal: {row.fiscal_year}")
-                print()
-
-                print(f"💾 STORAGE:")
-                print(f"   - Path relativo: {row.storage_relative_path}")
-                print()
-
-                print(f"📄 JOURNAL ENTRY (JE):")
-                print(f"   - Tipo: {row.je_file_type_code}")
-                print(f"   - Estructura: {row.je_file_data_structure_type_code}")
-                print(f"   - Nombre original: {row.je_original_file_name}")
-                print(f"   - Nombre sistema: {row.je_file_name}")
-                print(f"   - Extensión: {row.je_file_extension}")
-                print(f"   - Tamaño: {row.je_file_size_bytes:,} bytes ({row.je_file_size_bytes / 1024 / 1024:.2f} MB)")
-                print()
-
-                print(f"📊 TRIAL BALANCE (TB):")
-                print(f"   - Tipo: {row.tb_file_type_code}")
-                print(f"   - Estructura: {row.tb_file_data_structure_type_code}")
-                print(f"   - Nombre original: {row.tb_original_file_name}")
-                print(f"   - Nombre sistema: {row.tb_file_name}")
-                print(f"   - Extensión: {row.tb_file_extension}")
-                print(f"   - Tamaño: {row.tb_file_size_bytes:,} bytes ({row.tb_file_size_bytes / 1024 / 1024:.2f} MB)")
+                print(f"   - Audit Test ID: {row.audit_test_id}")
+                print(f"   - Name: {row.name}")
                 print()
 
                 print(f"👤 AUDITORÍA:")
                 print(f"   - Creado el: {row.created_at}")
-                print(f"   - Creado por (user_id): {row.created_by_user_id}")
+                print(f"   - Creado por (user_id): {row.created_by}")
+                print(f"   - Actualizado el: {row.updated_at}")
+                print(f"   - Actualizado por (user_id): {row.updated_by}")
                 print()
 
             print("=" * 100)
@@ -140,28 +104,16 @@ def query_by_id(audit_test_id):
             query = """
                 SELECT
                     id,
+                    external_gid,
                     tenant_id,
                     workspace_id,
                     project_id,
-                    external_gid,
-                    period_beginning_date,
-                    period_ending_date,
-                    fiscal_year,
-                    storage_relative_path,
-                    je_file_type_code,
-                    je_file_data_structure_type_code,
-                    je_original_file_name,
-                    je_file_name,
-                    je_file_extension,
-                    je_file_size_bytes,
-                    tb_file_type_code,
-                    tb_file_data_structure_type_code,
-                    tb_original_file_name,
-                    tb_file_name,
-                    tb_file_extension,
-                    tb_file_size_bytes,
+                    audit_test_id,
+                    name,
                     created_at,
-                    created_by_user_id
+                    created_by,
+                    updated_at,
+                    updated_by
                 FROM workspace.audit_test_exec
                 WHERE id = ?
             """
@@ -177,43 +129,19 @@ def query_by_id(audit_test_id):
 
             print(f"📋 INFORMACIÓN GENERAL:")
             print(f"   - ID: {row.id}")
+            print(f"   - External GID: {row.external_gid}")
             print(f"   - Tenant ID: {row.tenant_id}")
             print(f"   - Workspace ID: {row.workspace_id}")
             print(f"   - Project ID: {row.project_id}")
-            print(f"   - External GID: {row.external_gid or 'NULL'}")
-            print()
-
-            print(f"📅 PERÍODO:")
-            print(f"   - Fecha inicio: {row.period_beginning_date}")
-            print(f"   - Fecha fin: {row.period_ending_date}")
-            print(f"   - Año fiscal: {row.fiscal_year}")
-            print()
-
-            print(f"💾 STORAGE:")
-            print(f"   - Path relativo: {row.storage_relative_path}")
-            print()
-
-            print(f"📄 JOURNAL ENTRY (JE):")
-            print(f"   - Tipo: {row.je_file_type_code}")
-            print(f"   - Estructura: {row.je_file_data_structure_type_code}")
-            print(f"   - Nombre original: {row.je_original_file_name}")
-            print(f"   - Nombre sistema: {row.je_file_name}")
-            print(f"   - Extensión: {row.je_file_extension}")
-            print(f"   - Tamaño: {row.je_file_size_bytes:,} bytes ({row.je_file_size_bytes / 1024 / 1024:.2f} MB)")
-            print()
-
-            print(f"📊 TRIAL BALANCE (TB):")
-            print(f"   - Tipo: {row.tb_file_type_code}")
-            print(f"   - Estructura: {row.tb_file_data_structure_type_code}")
-            print(f"   - Nombre original: {row.tb_original_file_name}")
-            print(f"   - Nombre sistema: {row.tb_file_name}")
-            print(f"   - Extensión: {row.tb_file_extension}")
-            print(f"   - Tamaño: {row.tb_file_size_bytes:,} bytes ({row.tb_file_size_bytes / 1024 / 1024:.2f} MB)")
+            print(f"   - Audit Test ID: {row.audit_test_id}")
+            print(f"   - Name: {row.name}")
             print()
 
             print(f"👤 AUDITORÍA:")
             print(f"   - Creado el: {row.created_at}")
-            print(f"   - Creado por (user_id): {row.created_by_user_id}")
+            print(f"   - Creado por (user_id): {row.created_by}")
+            print(f"   - Actualizado el: {row.updated_at}")
+            print(f"   - Actualizado por (user_id): {row.updated_by}")
             print()
 
             print("=" * 100)
@@ -245,15 +173,14 @@ def query_by_project(project_id, limit=5):
             query = f"""
                 SELECT TOP {limit}
                     id,
+                    external_gid,
                     tenant_id,
                     workspace_id,
                     project_id,
-                    period_beginning_date,
-                    period_ending_date,
-                    fiscal_year,
-                    je_original_file_name,
-                    tb_original_file_name,
-                    created_at
+                    audit_test_id,
+                    name,
+                    created_at,
+                    created_by
                 FROM workspace.audit_test_exec
                 WHERE project_id = ?
                 ORDER BY id DESC
@@ -269,10 +196,9 @@ def query_by_project(project_id, limit=5):
             print(f"✅ Se encontraron {len(rows)} registro(s)\n")
 
             for i, row in enumerate(rows, 1):
-                print(f"{i}. ID: {row.id} | Período: {row.period_beginning_date} - {row.period_ending_date} | Año: {row.fiscal_year}")
-                print(f"   JE: {row.je_original_file_name}")
-                print(f"   TB: {row.tb_original_file_name}")
-                print(f"   Creado: {row.created_at}")
+                print(f"{i}. ID: {row.id} | Audit Test ID: {row.audit_test_id} | Name: {row.name}")
+                print(f"   External GID: {row.external_gid}")
+                print(f"   Creado: {row.created_at} por user_id: {row.created_by}")
                 print()
 
     except Exception as e:
