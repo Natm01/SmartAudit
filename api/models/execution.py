@@ -146,3 +146,49 @@ class TrialBalanceUnmappedField(BaseModel):
     total_values: int
     non_null_values: int
     unique_values: int
+
+# NUEVOS MODELOS para Audit Test Execution
+
+class AuditTestExecRequest(BaseModel):
+    """Request model for creating an audit test execution"""
+    # Parámetros de usuario y contexto
+    auth_user_id: int
+    tenant_id: int
+    workspace_id: int
+    project_id: int
+
+    # Parámetros globales
+    period_beginning_date: str = Field(description="Fecha de inicio del período (YYYY-MM-DD)")
+    period_ending_date: str = Field(description="Fecha de fin del período (YYYY-MM-DD)")
+    fiscal_year: int
+
+    # Parámetros de Journal Entry
+    je_original_file_name: str
+    je_file_name: str
+    je_file_size_bytes: int
+    je_file_type_code: str = 'CSV'
+    je_file_data_structure_type_code: str = 'TABULAR'
+    je_file_extension: str = 'csv'
+
+    # Parámetros de Trial Balance
+    tb_original_file_name: str
+    tb_file_name: str
+    tb_file_size_bytes: int
+    tb_file_type_code: str = 'CSV'
+    tb_file_data_structure_type_code: str = 'TABULAR'
+    tb_file_extension: str = 'csv'
+
+    # Parámetros opcionales
+    external_gid: Optional[str] = None
+    correlation_id: Optional[str] = None
+    language_code: str = 'es-ES'
+
+class AuditTestExecResponse(BaseModel):
+    """Response model for audit test execution creation"""
+    new_id: Optional[int] = Field(description="ID del registro creado en audit_test_exec")
+    has_error: bool = Field(description="Indica si hubo error")
+    error_code: Optional[str] = Field(None, description="Código del error")
+    error_message: Optional[str] = Field(None, description="Mensaje del error")
+    error_title: Optional[str] = Field(None, description="Título del error")
+    error_severity: Optional[str] = Field(None, description="Severidad del error")
+    error_category: Optional[str] = Field(None, description="Categoría del error")
