@@ -112,6 +112,8 @@ class AuditTestExecutionService:
 
         try:
             with get_db_connection() as conn:
+                # Activar autocommit para evitar conflictos de transacciones con el SP
+                conn.autocommit = True
                 cursor = conn.cursor()
 
                 # Ejecutar el procedimiento almacenado
@@ -195,8 +197,7 @@ class AuditTestExecutionService:
                 # Obtener los resultados (OUTPUT params)
                 row = cursor.fetchone()
 
-                # Commit la transacción
-                conn.commit()
+                # No hacer commit explícito - el SP maneja sus propias transacciones
 
                 # Extraer valores de salida
                 result = {
