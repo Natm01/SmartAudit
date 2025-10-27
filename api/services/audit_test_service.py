@@ -30,29 +30,33 @@ class AuditTestExecutionService:
 
     @staticmethod
     def insert_audit_test_exec_je_analysis(
-        # Parámetros de usuario y contexto
+        # Parámetros de usuario y contexto (sin defaults)
         auth_user_id: int,
         tenant_id: int,
         workspace_id: int,
         project_id: int,
 
-        # Parámetros globales
+        # Parámetros globales (sin defaults)
         period_beginning_date: date,
         period_ending_date: date,
         fiscal_year: int,
 
-        # Parámetros de Journal Entry
+        # Parámetros de Journal Entry (sin defaults)
         je_original_file_name: str,
         je_file_name: str,
         je_file_size_bytes: int,
+
+        # Parámetros de Trial Balance (sin defaults)
+        tb_original_file_name: str,
+        tb_file_name: str,
+        tb_file_size_bytes: int,
+
+        # Parámetros de Journal Entry (con defaults)
         je_file_type_code: str = 'CSV',
         je_file_data_structure_type_code: str = 'TABULAR',
         je_file_extension: str = 'csv',
 
-        # Parámetros de Trial Balance
-        tb_original_file_name: str,
-        tb_file_name: str,
-        tb_file_size_bytes: int,
+        # Parámetros de Trial Balance (con defaults)
         tb_file_type_code: str = 'CSV',
         tb_file_data_structure_type_code: str = 'TABULAR',
         tb_file_extension: str = 'csv',
