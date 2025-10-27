@@ -12,7 +12,12 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, status, Backgrou
 from models.execution import UploadResponse
 from services.execution_service import get_execution_service
 from services.storage.azure_storage_service import get_azure_storage_service
+from services.audit_test_service import get_audit_test_service
 from config.settings import get_settings
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Prefijo correcto que espera el frontend
 router = APIRouter(prefix="/smau-proto/api/import", tags=["upload"])
@@ -98,36 +103,173 @@ def get_original_filename(upload_file: UploadFile) -> str:
     """
     if not upload_file.filename:
         return "unknown_file"
-    
+
     # Limpiar el nombre de archivo de caracteres especiales si es necesario
     filename = upload_file.filename.strip()
-    
+
     # Remover path si viene incluido
     if '/' in filename:
         filename = filename.split('/')[-1]
     if '\\' in filename:
         filename = filename.split('\\')[-1]
-    
+
     return filename
+
+
+async def try_execute_audit_test_sp(
+    execution_id: str,
+    file_type: str,
+    parent_execution_id: Optional[str],
+    auth_user_id: int,
+    tenant_id: int,
+    workspace_id: int,
+    project_id: int,
+    period_beginning_date: str,
+    period_ending_date: str,
+    fiscal_year: int,
+    language_code: str = "es-ES"
+):
+    """
+    Intenta ejecutar el SP de audit test si ambos archivos (JE y TB) están listos
+
+    Args:
+        execution_id: ID de la ejecución actual
+        file_type: Tipo de archivo ("Je" o "Sys")
+        parent_execution_id: ID del parent execution (si es TB)
+        ... demás parámetros necesarios para el SP
+    """
+    try:
+        execution_service = get_execution_service()
+
+        # Determinar los IDs de JE y TB
+        je_execution_id = None
+        tb_execution_id = None
+
+        if file_type == "Je":
+            # Este es el Journal Entry
+            je_execution_id = execution_id
+            # Buscar si ya existe el Trial Balance
+            tb_execution_id = f"{execution_id}-ss"
+            try:
+                tb_execution = execution_service.get_execution(tb_execution_id)
+                # TB existe, verificar que esté completo
+                if not tb_execution.file_path or tb_execution.file_path.startswith("uploading_to_azure://"):
+                    logger.info(f"TB {tb_execution_id} aún no está completo, esperando...")
+                    return None
+            except:
+                # TB no existe aún
+                logger.info(f"TB {tb_execution_id} no existe aún, esperando...")
+                return None
+
+        elif file_type == "Sys":
+            # Este es el Trial Balance
+            tb_execution_id = execution_id
+            # El parent debe ser el Journal Entry
+            if not parent_execution_id:
+                logger.warning(f"TB {execution_id} no tiene parent_execution_id, no se puede ejecutar SP")
+                return None
+            je_execution_id = parent_execution_id
+
+            # Verificar que JE esté completo
+            try:
+                je_execution = execution_service.get_execution(je_execution_id)
+                if not je_execution.file_path or je_execution.file_path.startswith("uploading_to_azure://"):
+                    logger.info(f"JE {je_execution_id} aún no está completo, esperando...")
+                    return None
+            except:
+                logger.warning(f"JE {je_execution_id} no existe, no se puede ejecutar SP")
+                return None
+
+        # Ambos archivos están listos, obtener sus metadatos
+        je_execution = execution_service.get_execution(je_execution_id)
+        tb_execution = execution_service.get_execution(tb_execution_id)
+
+        logger.info(f"✅ Ambos archivos listos: JE={je_execution_id}, TB={tb_execution_id}")
+        logger.info(f"Ejecutando SP para project_id={project_id}")
+
+        # Preparar parámetros para el SP
+        audit_service = get_audit_test_service()
+
+        # Convertir fechas
+        period_begin = datetime.strptime(period_beginning_date, "%Y-%m-%d").date()
+        period_end = datetime.strptime(period_ending_date, "%Y-%m-%d").date()
+
+        # Determinar file_type_code basado en la extensión
+        je_ext = getattr(je_execution, 'file_extension', '.csv').lower()
+        je_file_type_code = 'XLS' if je_ext in ['.xls', '.xlsx'] else 'CSV'
+
+        tb_ext = getattr(tb_execution, 'file_extension', '.csv').lower()
+        tb_file_type_code = 'XLS' if tb_ext in ['.xls', '.xlsx'] else 'CSV'
+
+        # Ejecutar el SP
+        result = audit_service.insert_audit_test_exec_je_analysis(
+            auth_user_id=auth_user_id,
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            project_id=int(project_id),
+            period_beginning_date=period_begin,
+            period_ending_date=period_end,
+            fiscal_year=fiscal_year,
+            je_original_file_name=getattr(je_execution, 'file_name', ''),
+            je_file_name=getattr(je_execution, 'file_name', '').lower().replace(' ', '_'),
+            je_file_size_bytes=getattr(je_execution, 'file_size', 0) or 0,
+            tb_original_file_name=getattr(tb_execution, 'file_name', ''),
+            tb_file_name=getattr(tb_execution, 'file_name', '').lower().replace(' ', '_'),
+            tb_file_size_bytes=getattr(tb_execution, 'file_size', 0) or 0,
+            je_file_type_code=je_file_type_code,
+            je_file_data_structure_type_code='TABULAR',
+            je_file_extension=je_ext.lstrip('.'),
+            tb_file_type_code=tb_file_type_code,
+            tb_file_data_structure_type_code='TABULAR',
+            tb_file_extension=tb_ext.lstrip('.'),
+            language_code=language_code,
+            correlation_id=f"upload-{je_execution_id}"
+        )
+
+        if result['has_error']:
+            logger.error(f"❌ Error en SP: {result['error_code']} - {result['error_message']}")
+        else:
+            logger.info(f"✅ SP ejecutado exitosamente. audit_test_exec.id = {result['new_id']}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ Error al ejecutar SP: {e}", exc_info=True)
+        return None
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
-    background_tasks: BackgroundTasks, 
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     test_type: Optional[str] = Form("libro_diario_import"),
     project_id: Optional[str] = Form(None),
     period: Optional[str] = Form(None),
-    parent_execution_id: Optional[str] = Form(None)  # Para coordinar IDs entre LD y SS
+    parent_execution_id: Optional[str] = Form(None),  # Para coordinar IDs entre LD y SS
+    # Nuevos parámetros para el SP
+    auth_user_id: Optional[int] = Form(None),
+    tenant_id: Optional[int] = Form(None),
+    workspace_id: Optional[int] = Form(None),
+    period_beginning_date: Optional[str] = Form(None),  # YYYY-MM-DD
+    period_ending_date: Optional[str] = Form(None),     # YYYY-MM-DD
+    fiscal_year: Optional[int] = Form(None),
+    language_code: Optional[str] = Form("es-ES")
 ):
     """
     Upload a file for processing with structured naming and coordinated IDs
-    
+
     Args:
         file: El archivo a subir
         test_type: Tipo de test (libro_diario_import, sumas_saldos_import)
         project_id: ID del proyecto
         period: Período de la prueba
         parent_execution_id: ID de ejecución padre para coordinar con Sumas y Saldos
+        auth_user_id: ID del usuario autenticado (desde /api/v1/users/me)
+        tenant_id: ID del tenant (desde /api/v1/users/me)
+        workspace_id: ID del workspace (desde /api/v1/users/me)
+        period_beginning_date: Fecha de inicio del período (YYYY-MM-DD)
+        period_ending_date: Fecha de fin del período (YYYY-MM-DD)
+        fiscal_year: Año fiscal
+        language_code: Código de idioma (default: es-ES)
     """
     settings = get_settings()
     execution_service = get_execution_service()
@@ -307,18 +449,57 @@ async def upload_file(
             )
         
         message = "Large file upload started in background" if file_path.startswith("uploading_to_azure://") else "File uploaded successfully"
-        
+
         # Obtener nombre y extensión para el log
         name_without_ext = os.path.splitext(original_filename)[0]
         extension = os.path.splitext(original_filename)[1]
-        
+
         print(f" Upload completed: {execution_id}")
         print(f"   Original: {original_filename}")
         print(f"   Blob name: {execution_id}_{name_without_ext}_{file_type}{extension}")
         print(f"   Storage path: {file_path}")
         if parent_execution_id:
             print(f"   Parent execution: {parent_execution_id}")
-        
+
+        # ===================================================================
+        # INTENTAR EJECUTAR EL SP SI AMBOS ARCHIVOS ESTÁN LISTOS
+        # ===================================================================
+        # Solo intentar si:
+        # 1. No es upload en background
+        # 2. Tenemos todos los datos necesarios para el SP
+        if (not file_path.startswith("uploading_to_azure://") and
+            auth_user_id and tenant_id and workspace_id and project_id and
+            period_beginning_date and period_ending_date and fiscal_year):
+
+            logger.info(f"🔍 Verificando si ambos archivos están listos para ejecutar SP...")
+
+            sp_result = await try_execute_audit_test_sp(
+                execution_id=execution_id,
+                file_type=file_type,
+                parent_execution_id=parent_execution_id,
+                auth_user_id=auth_user_id,
+                tenant_id=tenant_id,
+                workspace_id=workspace_id,
+                project_id=project_id,
+                period_beginning_date=period_beginning_date,
+                period_ending_date=period_ending_date,
+                fiscal_year=fiscal_year,
+                language_code=language_code
+            )
+
+            if sp_result:
+                if sp_result['has_error']:
+                    logger.warning(f"⚠️  SP ejecutado pero devolvió error: {sp_result['error_message']}")
+                    message += f" | SP ejecutado con error: {sp_result['error_code']}"
+                else:
+                    logger.info(f"✅ SP ejecutado exitosamente. audit_test_exec.id = {sp_result['new_id']}")
+                    message += f" | audit_test_exec creado (ID: {sp_result['new_id']})"
+        else:
+            if file_path.startswith("uploading_to_azure://"):
+                logger.info("⏳ Upload en background, SP se ejecutará cuando termine")
+            else:
+                logger.warning(f"⚠️  Faltan datos para ejecutar SP - auth_user_id: {auth_user_id}, tenant_id: {tenant_id}, workspace_id: {workspace_id}, project_id: {project_id}, dates: {period_beginning_date}/{period_ending_date}, fiscal_year: {fiscal_year}")
+
         return UploadResponse(
             execution_id=execution_id,
             file_name=original_filename,
