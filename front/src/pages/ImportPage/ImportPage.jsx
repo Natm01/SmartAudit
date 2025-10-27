@@ -6,9 +6,11 @@ import ImportHistory from '../../components/ImportHistory/ImportHistory';
 import StatusModal from '../../components/StatusModal/StatusModal';
 import projectService from '../../services/projectService';
 import importService from '../../services/importService';
+import { useAuth } from '../../context/AuthContext';
 
 const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
   const navigate = useNavigate();
+  const { userContext } = useAuth(); // Obtener datos del usuario autenticado
   const [projects, setProjects] = useState([]);
   const [importHistory, setImportHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,13 +98,24 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
   };
 
   // === Subir y validar (LD + SS si existe) ===
-  const handleImportSubmit = async ({ projectId, period, libroDiarioFiles, sumasSaldosFile }) => {
+  const handleImportSubmit = async ({ projectId, period, libroDiarioFiles, sumasSaldosFile, fiscalYear, fechaInicio, fechaFin }) => {
     try {
       setError(null);
-      
+
+      // Validar que tenemos los datos del usuario
+      if (!userContext || !userContext.user_id || !userContext.tenant_id || !userContext.workspace_id) {
+        setError('No se pudo obtener la información del usuario. Por favor, recarga la página.');
+        return;
+      }
+
+      // Extraer datos del usuario
+      const auth_user_id = userContext.user_id;
+      const tenant_id = userContext.tenant_id;
+      const workspace_id = userContext.workspace_id;
+
       // Limpiar cache antes de empezar nueva importación
       cleanupValidationCache();
-      
+
       setStatusModal({
         open: true,
         title: 'Importando archivos',
@@ -112,7 +125,19 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
       });
 
       const uploadRes = await importService.uploadLibroDiarioYSumas(
-        libroDiarioFiles, sumasSaldosFile, projectId, period
+        libroDiarioFiles,
+        sumasSaldosFile,
+        projectId,
+        period,
+        {
+          auth_user_id,
+          tenant_id,
+          workspace_id,
+          fiscal_year: fiscalYear,
+          period_beginning_date: fechaInicio,
+          period_ending_date: fechaFin,
+          language_code: 'es-ES'
+        }
       );
       if (!uploadRes.success) {
         setStatusModal({
