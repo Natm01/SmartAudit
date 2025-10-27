@@ -102,8 +102,17 @@ const ImportPage = ({ filteredProjects, loadingProjects, currentUserId }) => {
     try {
       setError(null);
 
+      // Debug: Ver qué hay en userContext
+      console.log('🔍 userContext completo:', userContext);
+      console.log('🔍 Campos disponibles:', Object.keys(userContext || {}));
+
       // Validar que tenemos los datos del usuario
       if (!userContext || !userContext.user_id || !userContext.tenant_id || !userContext.workspace_id) {
+        console.error('❌ Faltan campos en userContext:', {
+          user_id: userContext?.user_id,
+          tenant_id: userContext?.tenant_id,
+          workspace_id: userContext?.workspace_id
+        });
         setError('No se pudo obtener la información del usuario. Por favor, recarga la página.');
         return;
       }
