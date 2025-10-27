@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ApplicationCard from '../../components/ApplicationCard/ApplicationCard';
-import DatabaseTestButton from '../../components/DatabaseTestButton/DatabaseTestButton';
 import applicationService from '../../services/applicationService';
+import DatabaseTestButton from '../../components/DatabaseTestButton/DatabaseTestButton';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -105,24 +105,14 @@ const HomePage = () => {
           {userContext && !userContext.error && (
             <div className="text-center mb-8 animate-fade-in">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
-                Bienvenido, {userContext.name || userContext.email?.split('@')[0]}
+                Bienvenido, {userContext.displaName || userContext.email?.split('@')[0]}
               </h2>
               <p className="text-sm text-gray-500">
-                {userContext.environment} • {userContext.userType}
+                {userContext.tenantName}
               </p>
             </div>
           )}
-
-          {/* Database Connection Test Section */}
-          <div className="mb-8 flex justify-center">
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 max-w-2xl w-full">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">
-                Diagnóstico de Conexión
-              </h3>
-              <DatabaseTestButton />
-            </div>
-          </div>
-
+          
           {/* Applications section */}
           <section className="animate-fade-in">
             <div className="text-center mb-6">
@@ -158,6 +148,17 @@ const HomePage = () => {
               </div>
             )}
           </section>
+
+          {/* Database Connection Test Section */}
+          <div className="mb-8 flex justify-center">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 max-w-2xl w-full">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">
+                Diagnóstico de Conexión
+              </h3>
+              <DatabaseTestButton />
+            </div>
+          </div>
+
         </div>
       </main>
       

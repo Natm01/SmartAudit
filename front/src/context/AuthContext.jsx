@@ -67,7 +67,8 @@ export const AuthProvider = ({ children }) => {
         // Primero parseamos los roles base
         const parsed = parseUserRole(userRole, account.username);
 
-        // Luego pedimos los datos enriquecidos del usuario desde el backend
+        // Luego pedimos los datos enriquecidos del usuario
+        //const API_BASE_URL = config.portalApiUrl;
         const idToken = response.idToken;
 
         try {
@@ -77,20 +78,15 @@ export const AuthProvider = ({ children }) => {
               'Authorization': `Bearer ${idToken}`,
               'Content-Type': 'application/json',
             },
+            //body: JSON.stringify({ username: account.username }),
           });
 
           if (apiResponse.ok) {
             const data = await apiResponse.json();
-            // Asegurar que siempre tengamos el campo id
-            const mergedData = {
+            setUserContext({
               ...parsed,
-              ...data,
-            };
-            // Si el backend no retorna id, usar el que extrajimos del email
-            if (!mergedData.id && parsed.id) {
-              mergedData.id = parsed.id;
-            }
-            setUserContext(mergedData);
+              ...data, // ← mezclamos los datos del backend con los roles
+            });
           } else {
             console.error('❌ Error en la respuesta del backend');
             setUserContext(parsed);
@@ -113,13 +109,9 @@ export const AuthProvider = ({ children }) => {
   // Parsear roles personalizados
   const parseUserRole = (roleValue, email) => {
     const parts = roleValue.split('.');
-    // Extraer el id del email (parte antes del @)
-    const id = email ? email.split('@')[0] : null;
-
     if (parts.length >= 5) {
       const [prefix, environment, type, tenantSlug, workspaceSlug] = parts;
       return {
-        id,
         email,
         environment,
         userType: type,
@@ -129,8 +121,7 @@ export const AuthProvider = ({ children }) => {
         isAdmin: type === 'admin'
       };
     }
-    return {
-      id,
+    return { 
       email, 
       error: 'Formato de role inválido', 
       rawRole: roleValue 
