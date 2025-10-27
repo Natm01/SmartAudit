@@ -86,7 +86,7 @@ POST /smau-proto/api/audit-test/exec
 | `auth_user_id` | int | Sí | ID del usuario autenticado | `/api/v1/users/me` |
 | `tenant_id` | int | Sí | ID del tenant | `/api/v1/users/me` |
 | `workspace_id` | int | Sí | ID del workspace | `/api/v1/users/me` |
-| `project_id` | int | Sí | ID del proyecto | `/api/v1/users/me` |
+| `project_id` | int | Sí | ID del proyecto seleccionado | Dropdown de proyectos en el frontend |
 
 ### Parámetros Globales
 
@@ -258,20 +258,23 @@ const createAuditTestExecution = async () => {
    - `auth_user_id`
    - `tenant_id`
    - `workspace_id`
-   - `project_id`
+   - Lista de proyectos disponibles
 
-2. **Recopilar datos del formulario** (Frontend):
+2. **Usuario selecciona un proyecto** del dropdown en el frontend:
+   - `project_id` (del proyecto seleccionado)
+
+3. **Recopilar datos del formulario** (Frontend):
    - `period_beginning_date`
    - `period_ending_date`
    - `fiscal_year`
 
-3. **Extraer metadatos de los archivos cargados**:
+4. **Extraer metadatos de los archivos cargados**:
    - Journal Entry: nombre original, nombre normalizado, tamaño, tipo, extensión
    - Trial Balance: nombre original, nombre normalizado, tamaño, tipo, extensión
 
-4. **Ejecutar la petición** POST a `/smau-proto/api/audit-test/exec`
+5. **Ejecutar la petición** POST a `/smau-proto/api/audit-test/exec`
 
-5. **Procesar la respuesta**:
+6. **Procesar la respuesta**:
    - Si `has_error` es `false`: Guardar el `new_id` para futuras referencias
    - Si `has_error` es `true`: Mostrar el error al usuario
 
