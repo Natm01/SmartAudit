@@ -119,16 +119,16 @@ async def start_database_upload(
 ):
     """
     Start database upload process for accounting data.
-    
+
     This endpoint:
     1. Validates that the execution exists and has required files
     2. Starts background task to load data to SQL Server
     3. Returns immediately while processing continues
-    
-    Required files in blob storage:
-    - {execution_id}_journal_entries_Je.csv
-    - {execution_id}_journal_entry_lines_Je.csv
-    - {execution_id}_trial_balance_Je.csv
+
+    Required files in blob storage (libro-diario-resultados container):
+    - je/{execution_id}_journal_entries_Je.csv
+    - je/{execution_id}_journal_entry_lines_Je.csv
+    - sys/{execution_id}_trial_balance_Je.csv
     """
     execution_service = get_execution_service()
     db_upload_service = get_database_upload_service()

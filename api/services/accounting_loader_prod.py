@@ -5,6 +5,7 @@ from typing import Tuple, List, Dict, Optional, Any
 import sys
 import os
 import time
+from db.connection import get_connection_string
 
 
 class AccountingDataLoader:
@@ -20,16 +21,6 @@ class AccountingDataLoader:
     """
 
     def __init__(self):
-        self.CONNECTION_STRING = (
-            "DRIVER={ODBC Driver 18 for SQL Server};"
-            "SERVER=smau-dev-sql.database.windows.net;"
-            "DATABASE=smau-dev-sqldb;"
-            "UID=smau_dev_user;"
-            "PWD=x+4Cj5Gdnml*NfwujyENmUeeNxYz8kw-N_e4EeI6FRkI+;"
-            "Encrypt=yes;TrustServerCertificate=no;"
-            "Connection Timeout=30;"
-        )
-
         # Parámetros fijos
         self.tenant_id = 101
         self.workspace_id = 101
@@ -1723,7 +1714,7 @@ class AccountingDataLoader:
         totality_df = None
         
         try:
-            conn = pyodbc.connect(self.CONNECTION_STRING)
+            conn = pyodbc.connect(get_connection_string())
 
             # Phase 1: Ensure dependencies
             t0 = time.time()
