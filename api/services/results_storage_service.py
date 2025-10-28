@@ -218,6 +218,12 @@ class ResultsStorageService:
 
         logger.info(f"All validations passed for execution {execution.id}. Starting to save results...")
 
+        # Determinar el execution_id a usar para la estructura de carpetas
+        # Si esta ejecución tiene un parent (es Sys), usar el parent_execution_id
+        # para que ambos archivos (Je y Sys) estén en la misma carpeta
+        folder_execution_id = execution.parent_execution_id if execution.parent_execution_id else execution.id
+        logger.info(f"Using folder_execution_id: {folder_execution_id} (execution.id: {execution.id}, parent: {execution.parent_execution_id})")
+
         saved_files = {}
         temp_files = []
 
@@ -253,8 +259,8 @@ class ResultsStorageService:
                     logger.info(f"Created header file with {len(df_header)} rows and {len(available_header_cols)} columns")
 
                     # Upload header
-                    header_filename = f"{execution.id}-je-cabecera.csv"
-                    header_blob_path = self._create_blob_path(project_id, execution.id, "je", header_filename)
+                    header_filename = f"{folder_execution_id}-je-cabecera.csv"
+                    header_blob_path = self._create_blob_path(project_id, folder_execution_id, "je", header_filename)
                     saved_files['journal_header'] = self._upload_to_results_container(temp_header.name, header_blob_path)
 
                 # Create detail file (all rows with detail columns)
@@ -272,8 +278,8 @@ class ResultsStorageService:
                     logger.info(f"Created detail file with {len(df_detail)} rows and {len(detail_cols_with_id)} columns")
 
                     # Upload detail
-                    detail_filename = f"{execution.id}-je-detalle.csv"
-                    detail_blob_path = self._create_blob_path(project_id, execution.id, "je", detail_filename)
+                    detail_filename = f"{folder_execution_id}-je-detalle.csv"
+                    detail_blob_path = self._create_blob_path(project_id, folder_execution_id, "je", detail_filename)
                     saved_files['journal_detail'] = self._upload_to_results_container(temp_detail.name, detail_blob_path)
 
             # Save Trial Balance (if exists)
@@ -294,8 +300,8 @@ class ResultsStorageService:
                 )
 
                 # Upload trial balance
-                trial_filename = f"{execution.id}-sys.csv"
-                trial_blob_path = self._create_blob_path(project_id, execution.id, "sys", trial_filename)
+                trial_filename = f"{folder_execution_id}-sys.csv"
+                trial_blob_path = self._create_blob_path(project_id, folder_execution_id, "sys", trial_filename)
                 saved_files['trial_balance'] = self._upload_to_results_container(temp_trial.name, trial_blob_path)
 
             logger.info(f"Successfully saved {len(saved_files)} files to results container")
