@@ -149,20 +149,19 @@ class ResultsStorageService:
             df = pd.read_csv(temp_source)
             logger.info(f"Read CSV with {len(df)} rows and columns: {list(df.columns)}")
 
-            # Filter columns (only keep those that exist in both config and dataframe)
-            available_columns = [col for col in columns if col in df.columns]
+            # Incluir TODAS las columnas del JSON, agregar las faltantes con NaN
             missing_columns = [col for col in columns if col not in df.columns]
+            for col in missing_columns:
+                df[col] = None
+                logger.info(f"Added missing trial balance column: {col}")
 
-            if missing_columns:
-                logger.warning(f"Missing columns in data: {missing_columns}")
-
-            # Select only available columns
-            df_filtered = df[available_columns]
-            logger.info(f"Filtered to {len(available_columns)} columns: {available_columns}")
+            # Select columns in the order specified in the JSON config
+            df_filtered = df[columns]
+            logger.info(f"Included all {len(columns)} columns from config")
 
             # Save to output path
             df_filtered.to_csv(output_path, index=False, encoding='utf-8')
-            logger.info(f"Saved filtered CSV to {output_path}")
+            logger.info(f"Saved CSV with all configured columns to {output_path}")
 
             return output_path
 
@@ -244,19 +243,22 @@ class ResultsStorageService:
                 df = pd.read_csv(temp_source)
                 logger.info(f"Read journal entries CSV with {len(df)} rows")
 
-                # Separate header and detail data
-                available_header_cols = [col for col in header_columns if col in df.columns]
-                available_detail_cols = [col for col in detail_columns if col in df.columns]
-
                 # Create header file (unique by journal_entry_id)
-                if available_header_cols:
-                    df_header = df[available_header_cols].drop_duplicates(subset=['journal_entry_id'], keep='first')
+                if header_columns:
+                    # Incluir TODAS las columnas del JSON, agregar las faltantes con NaN
+                    for col in header_columns:
+                        if col not in df.columns:
+                            df[col] = None
+                            logger.info(f"Added missing header column: {col}")
+
+                    # Seleccionar solo las columnas del header en el orden del JSON
+                    df_header = df[header_columns].drop_duplicates(subset=['journal_entry_id'], keep='first')
                     temp_header = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
                     temp_header.close()
                     temp_files.append(temp_header.name)
 
                     df_header.to_csv(temp_header.name, index=False, encoding='utf-8')
-                    logger.info(f"Created header file with {len(df_header)} rows and {len(available_header_cols)} columns")
+                    logger.info(f"Created header file with {len(df_header)} rows and {len(header_columns)} columns (all from config)")
 
                     # Upload header
                     header_filename = f"{folder_execution_id}-je-cabecera.csv"
@@ -264,10 +266,20 @@ class ResultsStorageService:
                     saved_files['journal_header'] = self._upload_to_results_container(temp_header.name, header_blob_path)
 
                 # Create detail file (all rows with detail columns)
-                if available_detail_cols:
+                if detail_columns:
+                    # Incluir TODAS las columnas del JSON, agregar las faltantes con NaN
+                    for col in detail_columns:
+                        if col not in df.columns:
+                            df[col] = None
+                            logger.info(f"Added missing detail column: {col}")
+
                     # Include journal_entry_id to link with header
-                    detail_cols_with_id = ['journal_entry_id'] + available_detail_cols if 'journal_entry_id' not in available_detail_cols else available_detail_cols
-                    detail_cols_with_id = [col for col in detail_cols_with_id if col in df.columns]
+                    detail_cols_with_id = ['journal_entry_id'] + detail_columns if 'journal_entry_id' not in detail_columns else detail_columns
+
+                    # Agregar journal_entry_id si no existe
+                    if 'journal_entry_id' not in df.columns:
+                        df['journal_entry_id'] = None
+                        logger.info("Added missing column: journal_entry_id")
 
                     df_detail = df[detail_cols_with_id]
                     temp_detail = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
@@ -275,7 +287,7 @@ class ResultsStorageService:
                     temp_files.append(temp_detail.name)
 
                     df_detail.to_csv(temp_detail.name, index=False, encoding='utf-8')
-                    logger.info(f"Created detail file with {len(df_detail)} rows and {len(detail_cols_with_id)} columns")
+                    logger.info(f"Created detail file with {len(df_detail)} rows and {len(detail_cols_with_id)} columns (all from config)")
 
                     # Upload detail
                     detail_filename = f"{folder_execution_id}-je-detalle.csv"
