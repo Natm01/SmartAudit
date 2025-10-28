@@ -227,14 +227,18 @@ async def get_sumas_saldos_validation_status(execution_id: str):
             else None
         )
         
-        # Determine status
-        current_status = execution.status
+        # Determine status basándose en el step específico de validación
+        current_status = "not_started"
+
         if execution.step == "sumas_saldos_validation_completed":
             current_status = "completed"
         elif execution.step == "sumas_saldos_validation_failed":
             current_status = "failed"
         elif execution.step == "sumas_saldos_validation":
             current_status = "processing"
+        elif validation_results:
+            # Si hay resultados pero el step no está actualizado
+            current_status = "completed"
         
         # Get summary if results available
         summary = None
@@ -296,31 +300,22 @@ async def get_sumas_saldos_validation_summary(execution_id: str):
                 }
             }
         
+        # Cuando hay resultados, construir las fases
         phases = []
         fase_1 = validation_results.get('fase_1_formato', {})
-        
-        phase_status = "pending"
-        if fase_1:
-            if fase_1.get('is_phase_valid'):
-                phase_status = "completed"
-            else:
-                phase_status = "failed"
-        
+
+        phase_status = "completed" if fase_1.get('is_phase_valid') else "failed"
+
         phases.append({
             "phase": 1,
             "name": "Validaciones de Formato",
             "status": phase_status,
             "checks": fase_1.get('summary', {})
         })
-        
-        completed_phases = 1 if fase_1 else 0
-        
-        overall_status = execution.status
-        if fase_1:
-            if fase_1.get('is_phase_valid'):
-                overall_status = "completed"
-            else:
-                overall_status = "completed_with_errors"
+
+        completed_phases = 1
+
+        overall_status = "completed" if fase_1.get('is_phase_valid') else "completed_with_errors"
         
         return {
             "execution_id": execution_id,
