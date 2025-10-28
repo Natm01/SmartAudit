@@ -203,6 +203,16 @@ async def try_execute_audit_test_sp(
         # Si es XLS o XLSX, usar XLSX; si es CSV, usar CSV
         tb_file_type_code = 'XLSX' if tb_ext in ['.xls', '.xlsx'] else 'CSV'
 
+        # Construir los nombres de los archivos como se suben al blob storage
+        # Formato: {execution_id}_{nombre_sin_ext}_{file_type}.{extension}
+        je_original_name = getattr(je_execution, 'file_name', '')
+        je_name_without_ext = os.path.splitext(je_original_name)[0]
+        je_blob_name = f"{je_execution_id}_{je_name_without_ext}_Je{je_ext}"
+
+        tb_original_name = getattr(tb_execution, 'file_name', '')
+        tb_name_without_ext = os.path.splitext(tb_original_name)[0]
+        tb_blob_name = f"{tb_execution_id}_{tb_name_without_ext}_Sys{tb_ext}"
+
         # Ejecutar el SP
         result = audit_service.insert_audit_test_exec_je_analysis(
             auth_user_id=auth_user_id,
@@ -212,11 +222,11 @@ async def try_execute_audit_test_sp(
             period_beginning_date=period_begin,
             period_ending_date=period_end,
             fiscal_year=fiscal_year,
-            je_original_file_name=getattr(je_execution, 'file_name', ''),
-            je_file_name=getattr(je_execution, 'file_name', '').lower().replace(' ', '_'),
+            je_original_file_name=je_original_name,
+            je_file_name=je_blob_name,  # Nombre del blob en storage
             je_file_size_bytes=getattr(je_execution, 'file_size', 0) or 0,
-            tb_original_file_name=getattr(tb_execution, 'file_name', ''),
-            tb_file_name=getattr(tb_execution, 'file_name', '').lower().replace(' ', '_'),
+            tb_original_file_name=tb_original_name,
+            tb_file_name=tb_blob_name,  # Nombre del blob en storage
             tb_file_size_bytes=getattr(tb_execution, 'file_size', 0) or 0,
             je_file_type_code=je_file_type_code,
             je_file_data_structure_type_code='TABULAR',
@@ -224,6 +234,7 @@ async def try_execute_audit_test_sp(
             tb_file_type_code=tb_file_type_code,
             tb_file_data_structure_type_code='TABULAR',
             tb_file_extension=tb_ext.lstrip('.'),
+            external_gid=je_execution_id,  # El execution_id único del JE
             language_code=language_code,
             correlation_id=f"upload-{je_execution_id}"
         )
@@ -537,6 +548,19 @@ async def upload_file(
                     je_ext = getattr(je_execution, 'file_extension', '.csv').lower()
                     tb_ext = getattr(tb_execution, 'file_extension', '.csv').lower()
 
+                    # Obtener los execution_ids correctos
+                    je_exec_id = parent_execution_id if file_type == "Sys" else execution_id
+                    tb_exec_id = execution_id if file_type == "Sys" else f"{execution_id}-ss"
+
+                    # Construir nombres de blobs
+                    je_orig_name = getattr(je_execution, 'file_name', '')
+                    je_name_no_ext = os.path.splitext(je_orig_name)[0]
+                    je_blob_name = f"{je_exec_id}_{je_name_no_ext}_Je{je_ext}"
+
+                    tb_orig_name = getattr(tb_execution, 'file_name', '')
+                    tb_name_no_ext = os.path.splitext(tb_orig_name)[0]
+                    tb_blob_name = f"{tb_exec_id}_{tb_name_no_ext}_Sys{tb_ext}"
+
                     sp_params_for_frontend = {
                         "usuario_y_contexto": {
                             "auth_user_id": auth_user_id,
@@ -555,8 +579,8 @@ async def upload_file(
                         "journal_entry": {
                             "je_file_type_code": 'XLSX' if je_ext in ['.xls', '.xlsx'] else 'CSV',
                             "je_file_data_structure_type_code": 'TABULAR',
-                            "je_original_file_name": getattr(je_execution, 'file_name', ''),
-                            "je_file_name": getattr(je_execution, 'file_name', '').lower().replace(' ', '_'),
+                            "je_original_file_name": je_orig_name,
+                            "je_file_name": je_blob_name,  # Nombre del blob en storage
                             "je_file_extension": je_ext.lstrip('.'),
                             "je_file_size_bytes": getattr(je_execution, 'file_size', 0) or 0,
                             "je_file_size_mb": round((getattr(je_execution, 'file_size', 0) or 0) / (1024*1024), 2)
@@ -564,15 +588,15 @@ async def upload_file(
                         "trial_balance": {
                             "tb_file_type_code": 'XLSX' if tb_ext in ['.xls', '.xlsx'] else 'CSV',
                             "tb_file_data_structure_type_code": 'TABULAR',
-                            "tb_original_file_name": getattr(tb_execution, 'file_name', ''),
-                            "tb_file_name": getattr(tb_execution, 'file_name', '').lower().replace(' ', '_'),
+                            "tb_original_file_name": tb_orig_name,
+                            "tb_file_name": tb_blob_name,  # Nombre del blob en storage
                             "tb_file_extension": tb_ext.lstrip('.'),
                             "tb_file_size_bytes": getattr(tb_execution, 'file_size', 0) or 0,
                             "tb_file_size_mb": round((getattr(tb_execution, 'file_size', 0) or 0) / (1024*1024), 2)
                         },
                         "opcionales": {
-                            "external_gid": None,
-                            "correlation_id": f"upload-{parent_execution_id if file_type == 'Sys' else execution_id}",
+                            "external_gid": je_exec_id,  # El execution_id único del JE
+                            "correlation_id": f"upload-{je_exec_id}",
                             "language_code": language_code
                         },
                         "resultado_sp": {
