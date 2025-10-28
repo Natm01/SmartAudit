@@ -12,6 +12,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [mapeoData, setMapeoData] = useState(null);
+  // Estados para controlar el botón de mapeo
+  const [mappingApplied, setMappingApplied] = useState(false);
+  const [initialMappingsSnapshot, setInitialMappingsSnapshot] = useState({});
 
   // Claves para sessionStorage
   const getStorageKey = (suffix) => `fieldmapper_${executionId}_${suffix}`;
@@ -121,6 +124,21 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     }
   }, [fieldMappings, fieldConfidences]);
 
+  // Verificar si el mapeo ya fue aplicado previamente (al cargar el componente)
+  useEffect(() => {
+    if (!executionId) return;
+
+    const storageKey = fileType === 'sumas_saldos'
+      ? `mappingApplied_${executionId}-ss`
+      : `mappingApplied_${executionId}`;
+
+    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+    if (mappingAppliedFlag === 'true') {
+      setMappingApplied(true);
+      console.log('🔒 Mapeo fue aplicado previamente, botón deshabilitado');
+    }
+  }, [executionId, fileType]);
+
   // Función para cargar los datos del mapeo
   const loadMapeoData = async () => {
     if (!executionId) return;
@@ -219,22 +237,22 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const handleMappingChange = (originalField, targetField) => {
     // PASO 1: Crear copia del estado actual
     const newMappings = { ...fieldMappings };
-    
-    // PASO 2: Si el targetField ya estaba mapeado a otro originalField, 
+
+    // PASO 2: Si el targetField ya estaba mapeado a otro originalField,
     // eliminamos ese mapeo anterior
     if (targetField) {
       // Buscar si targetField ya estaba asignado a otra columna
       const previousMapping = Object.entries(fieldMappings).find(
         ([key, value]) => value === targetField && key !== originalField
       );
-      
+
       // Si existía un mapeo anterior diferente, lo eliminamos
       if (previousMapping) {
         delete newMappings[previousMapping[0]];
         console.log(`🔄 Removiendo mapeo anterior: ${previousMapping[0]} -> ${targetField}`);
       }
     }
-    
+
     // PASO 3: Aplicar el nuevo mapeo (o eliminar si targetField está vacío)
     if (targetField) {
       newMappings[originalField] = targetField;
@@ -244,8 +262,14 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       delete newMappings[originalField];
       console.log(`🗑️ Mapeo eliminado: ${originalField}`);
     }
-    
+
     setFieldMappings(newMappings);
+
+    // PASO 4: Si el mapeo fue aplicado previamente, habilitar el botón nuevamente
+    if (mappingApplied) {
+      console.log('🔓 Mapeo modificado después de aplicar, habilitando botón de mapeo');
+      setMappingApplied(false);
+    }
   };
 
   const handleApplyMappings = async () => {
@@ -324,6 +348,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         } else {
           setOriginalBackendMappings(fieldMappings);
         }
+
+        // Deshabilitar el botón de mapeo después de aplicar exitosamente
+        setMappingApplied(true);
+        setInitialMappingsSnapshot({ ...fieldMappings });
+        console.log('🔒 Botón de mapeo deshabilitado después de aplicar exitosamente');
 
         if (onMappingChange) {
           onMappingChange(fieldMappings);
@@ -436,7 +465,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     if (fileType === 'libro_diario' && originalBackendMappings.mappings) {
       setFieldMappings(originalBackendMappings.mappings);
       setFieldConfidences(originalBackendMappings.confidences || {});
-      
+
       const withConfidence = Object.keys(originalBackendMappings.confidences || {}).length;
       console.log(
         ` Restaurados ${Object.keys(originalBackendMappings.mappings).length} mapeos del backend` +
@@ -446,6 +475,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       setFieldMappings(originalBackendMappings);
       console.log(` Restaurados ${Object.keys(originalBackendMappings).length} mapeos del backend`);
     }
+
+    // Habilitar el botón de mapeo al restaurar, porque se cambió el estado
+    setMappingApplied(false);
+    console.log('🔓 Botón de mapeo habilitado al restaurar mapeo automático');
   };
 
   if (!originalFields || originalFields.length === 0) {
@@ -502,10 +535,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                 e.stopPropagation();
                 handleApplyMappings();
               }}
-              disabled={loading}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50"
+              disabled={loading || mappingApplied}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={mappingApplied ? 'Mapeo ya aplicado. Modifica una columna para volver a mapear.' : 'Aplicar el mapeo al archivo'}
             >
-              {loading ? 'Aplicando...' : 'Aplicar Mapeo'}
+              {loading ? 'Aplicando...' : mappingApplied ? 'Mapeo Aplicado ✓' : 'Aplicar Mapeo'}
             </button>
             
             <svg 
@@ -668,7 +702,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                   onClick={() => {
                     setFieldMappings({});
                     setFieldConfidences({});
+                    setMappingApplied(false);
                     console.log('🧹 Mapeos limpiados (el backup del backend se mantiene)');
+                    console.log('🔓 Botón de mapeo habilitado al limpiar');
                   }}
                   disabled={loading}
                   className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
