@@ -21,20 +21,21 @@ class DatabaseUploadService:
         self.storage_service = get_azure_storage_service()
         self.accounting_loader = None
         
-    async def validate_files_exist(self, execution_id: str) -> Dict[str, Any]:
+    async def validate_files_exist(self, execution_id: str, project_id: int) -> Dict[str, Any]:
         """
         Validate that all required CSV files exist in blob storage.
-        
+
         Args:
             execution_id: The execution ID
-            
+            project_id: The project ID
+
         Returns:
             Dict with 'valid' boolean and list of 'missing_files'
         """
         required_files = [
-            f"je/{execution_id}_journal_entries_Je.csv",
-            f"je/{execution_id}_journal_entry_lines_Je.csv",
-            f"sys/{execution_id}_trial_balance_Je.csv"
+            f"{project_id}/{execution_id}/je/{execution_id}_journal_entries_Je.csv",
+            f"{project_id}/{execution_id}/je/{execution_id}_journal_entry_lines_Je.csv",
+            f"{project_id}/{execution_id}/sys/{execution_id}_trial_balance_sys.csv"
         ]
 
         missing_files = []
@@ -99,13 +100,13 @@ class DatabaseUploadService:
             
             # Define blob relative paths (for SQL Server External Data Source)
             # The SPs expect paths relative to the blob container root
-            # Files are in "libro-diario-resultados" container:
-            # - Journal entries in "je/" folder
-            # - Trial balance (sumas y saldos) in "sys/" folder
+            # Files are in "libro-diario-resultados" container with structure:
+            # {project_id}/{execution_id}/je/ - Journal entries files
+            # {project_id}/{execution_id}/sys/ - Trial balance (sumas y saldos) file
             blob_paths = {
-                "journal_entries": f"libro-diario-resultados/je/{execution_id}_journal_entries_Je.csv",
-                "journal_entry_lines": f"libro-diario-resultados/je/{execution_id}_journal_entry_lines_Je.csv",
-                "trial_balance": f"libro-diario-resultados/sys/{execution_id}_trial_balance_Je.csv"
+                "journal_entries": f"libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}_journal_entries_Je.csv",
+                "journal_entry_lines": f"libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}_journal_entry_lines_Je.csv",
+                "trial_balance": f"libro-diario-resultados/{project_id}/{execution_id}/sys/{execution_id}_trial_balance_sys.csv"
             }
             
             logger.info(f"Blob paths configured:")
