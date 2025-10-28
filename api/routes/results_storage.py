@@ -180,7 +180,7 @@ async def check_save_results_status(execution_id: str):
                 "passed": False
             },
             "trial_balance": {
-                "exists": execution.sumas_saldos_manual_csv_path is not None,
+                "exists": execution.sumas_saldos_csv_path is not None,
                 "validated": execution.sumas_saldos_validation_results is not None,
                 "passed": False
             }

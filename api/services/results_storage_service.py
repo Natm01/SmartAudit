@@ -86,7 +86,8 @@ class ResultsStorageService:
 
         # Check if we have both types of data
         has_journal = execution.output_file is not None
-        has_trial_balance = execution.sumas_saldos_manual_csv_path is not None
+        # Use sumas_saldos_csv_path (updated after both auto and manual mapping)
+        has_trial_balance = execution.sumas_saldos_csv_path is not None
 
         if not has_journal and not has_trial_balance:
             return False, "No hay archivos procesados para guardar"
@@ -276,7 +277,7 @@ class ResultsStorageService:
                     saved_files['journal_detail'] = self._upload_to_results_container(temp_detail.name, detail_blob_path)
 
             # Save Trial Balance (if exists)
-            if execution.sumas_saldos_manual_csv_path:
+            if execution.sumas_saldos_csv_path:
                 logger.info("Processing Sumas y Saldos file...")
 
                 trial_columns = self._get_trial_balance_columns()
@@ -287,7 +288,7 @@ class ResultsStorageService:
 
                 # Filter and save
                 self._filter_and_save_csv(
-                    execution.sumas_saldos_manual_csv_path,
+                    execution.sumas_saldos_csv_path,
                     trial_columns,
                     temp_trial.name
                 )
