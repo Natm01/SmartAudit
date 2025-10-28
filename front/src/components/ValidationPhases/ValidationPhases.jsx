@@ -141,31 +141,36 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
     const interval = setInterval(() => {
       try {
         const mappingAppliedAt = sessionStorage.getItem(getStorageKey('mappingAppliedAt'));
-        const savedCompleted = sessionStorage.getItem(getStorageKey('allCompleted'));
 
-        // Si hay un timestamp de mapeo aplicado y la validación está completada, resetear
-        if (mappingAppliedAt && allCompleted && !savedCompleted) {
-          console.log('🔄 Nuevo mapeo detectado después de validación, reseteando componente...');
+        // ✅ CORREGIDO: Si hay timestamp de nuevo mapeo, resetear SIEMPRE
+        // (no importa si la validación estaba completada o en progreso)
+        if (mappingAppliedAt) {
+          // Verificar si hay alguna fase que no esté en estado 'pending'
+          const hasStartedValidation = phases.some(p => p.status !== 'pending');
 
-          // Resetear todas las fases a pendiente
-          const resetPhases = currentPhaseDefinitions.map(phase => ({
-            ...phase,
-            status: 'pending'
-          }));
+          if (hasStartedValidation || allCompleted) {
+            console.log('🔄 Nuevo mapeo detectado, reseteando validación...');
 
-          setPhases(resetPhases);
-          setAllCompleted(false);
-          setProgressData({
-            completed: 0,
-            total: getTotalPhases()
-          });
-          setValidationError(null);
-          setIsExpanded(false);
+            // Resetear todas las fases a pendiente
+            const resetPhases = currentPhaseDefinitions.map(phase => ({
+              ...phase,
+              status: 'pending'
+            }));
 
-          // Remover el timestamp para no resetear múltiples veces
-          sessionStorage.removeItem(getStorageKey('mappingAppliedAt'));
+            setPhases(resetPhases);
+            setAllCompleted(false);
+            setProgressData({
+              completed: 0,
+              total: getTotalPhases()
+            });
+            setValidationError(null);
+            setIsExpanded(false);
 
-          console.log('✅ Componente de validación reseteado, botón de validación disponible');
+            // Remover el timestamp para no resetear múltiples veces
+            sessionStorage.removeItem(getStorageKey('mappingAppliedAt'));
+
+            console.log('✅ Validación reseteada, botón disponible para re-validar');
+          }
         }
       } catch (error) {
         console.warn('Error checking validation state:', error);
@@ -173,7 +178,7 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
     }, 500); // Verificar cada 500ms
 
     return () => clearInterval(interval);
-  }, [allCompleted]);
+  }, [phases, allCompleted]); // ✅ Agregado phases a dependencias
 
   const startValidation = async () => {
     if (!executionId) {
