@@ -192,21 +192,43 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
 
   // ============================================
   // EFECTO 3: Sincronizar columnas desde props
-  // ✅ CORREGIDO: Solo actualiza si NO hay datos guardados
+  // ✅ CORREGIDO: Actualiza columnas cuando llegan desde FilePreview
   // ============================================
   useEffect(() => {
-    if (originalFields && originalFields.length > 0) {
-      // Si llegan columnas nuevas, actualizar SOLO si:
-      // 1. No tenemos columnas Y
-      // 2. Ya se intentó cargar datos iniciales (para no sobrescribir antes de cargar)
-      if (mapperData.originalColumns.length === 0 && initialDataLoaded) {
-        console.log('✅ Columnas originales recibidas desde prop (sin datos previos):', originalFields.length);
+    if (!originalFields || originalFields.length === 0 || !initialDataLoaded) return;
+
+    // Comparar si las columnas son diferentes (archivo nuevo vs guardado)
+    const currentColumns = mapperData.originalColumns;
+    const newColumns = originalFields;
+
+    // Si no hay columnas guardadas O las columnas son diferentes → actualizar
+    const columnsChanged = currentColumns.length === 0 ||
+                          currentColumns.length !== newColumns.length ||
+                          !currentColumns.every((col, idx) => col === newColumns[idx]);
+
+    if (columnsChanged) {
+      console.log('🔄 Actualizando columnas desde archivo actual:', {
+        antes: currentColumns.length,
+        ahora: newColumns.length,
+        nuevasColumnas: newColumns
+      });
+
+      // Si las columnas cambiaron Y ya había columnas guardadas → es un archivo DIFERENTE
+      // Limpiar mapeos porque ya no son válidos para las nuevas columnas
+      if (currentColumns.length > 0) {
+        console.log('⚠️ Archivo diferente detectado - limpiando mapeos obsoletos');
+        setMapperData({
+          originalColumns: newColumns,
+          mappings: {},
+          confidences: {},
+          appliedToBackend: false
+        });
+      } else {
+        // Primera carga de columnas → mantener mapeos si existen
         setMapperData(prev => ({
           ...prev,
-          originalColumns: originalFields
+          originalColumns: newColumns
         }));
-      } else if (mapperData.originalColumns.length === 0 && !initialDataLoaded) {
-        console.log('⏳ Esperando carga inicial antes de sincronizar columnas...');
       }
     }
   }, [originalFields, initialDataLoaded]);
@@ -531,10 +553,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     console.log('🧹 Mapeos limpiados');
   };
 
-  // Decidir qué columnas mostrar
-  const columnsToShow = mapperData.originalColumns.length > 0
-    ? mapperData.originalColumns
-    : (originalFields || []);
+  // ✅ CORREGIDO: SIEMPRE priorizar columnas del archivo ACTUAL (originalFields)
+  // Solo usar columnas guardadas (mapperData.originalColumns) como fallback
+  const columnsToShow = (originalFields && originalFields.length > 0)
+    ? originalFields  // ✅ PRIORIDAD: Columnas del archivo ACTUAL
+    : mapperData.originalColumns;  // Fallback: Columnas guardadas
 
   if (!columnsToShow || columnsToShow.length === 0) {
     if (Object.keys(mapperData.mappings).length > 0) {
