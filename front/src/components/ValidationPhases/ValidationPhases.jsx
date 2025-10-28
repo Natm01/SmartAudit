@@ -45,9 +45,17 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
   const [isValidating, setIsValidating] = useState(false);
   const [allCompleted, setAllCompleted] = useState(savedState.allCompleted);
   const [validationError, setValidationError] = useState(null);
+
+  // Calcular el total de fases según el tipo de archivo
+  const getTotalPhases = () => {
+    if (fileType === 'libro_diario') return 4;
+    if (fileType === 'sumas_saldos') return 1;
+    return 4; // default
+  };
+
   const [progressData, setProgressData] = useState(savedState.progressData || {
     completed: 0,
-    total: 4
+    total: getTotalPhases()
   });
 
   const phaseDefinitions = {
@@ -90,16 +98,11 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
         id: 1,
         name: "Validaciones de Formato",
         validations: [
-          "Fechas con formato correcto",
-          "Horas con formato correcto",
-          "Importes con formato correcto"
-        ]
-      }, 
-      {
-        id: 2,
-        name: "Validaciones de Integridad Contable",
-        validations: [
-          "Saldos balanceados"
+          "Número de cuenta contable presente",
+          "Saldo inicial con formato correcto",
+          "Saldo final con formato correcto",
+          "Movimientos débito con formato correcto",
+          "Movimientos crédito con formato correcto"
         ]
       }
     ]
