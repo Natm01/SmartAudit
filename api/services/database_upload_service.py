@@ -61,25 +61,35 @@ class DatabaseUploadService:
         }
     
     async def upload_to_database(
-        self, 
+        self,
         execution_id: str,
+        workspace_id: int,
+        project_id: int,
+        entity_id: int,
+        fiscal_year: int,
+        period_ending_date: str,
         dataset_version_id: int = 201,
         needs_mapping: bool = False
     ) -> Dict[str, Any]:
         """
         Upload accounting data to SQL Server database.
-        
+
         This method:
         1. Constructs blob paths for the 3 CSV files
-        2. Creates AccountingDataLoader instance with dataset_version_id
+        2. Creates AccountingDataLoader instance with parameters from execution
         3. Runs the data loading process (SPs read directly from blob)
         4. Uploads totality report back to blob storage if generated
-        
+
         Args:
             execution_id: The execution ID
+            workspace_id: Workspace ID from execution
+            project_id: Project ID from execution
+            entity_id: Entity ID from execution
+            fiscal_year: Fiscal year from execution
+            period_ending_date: Period ending date from execution (YYYY-MM-DD)
             dataset_version_id: Dataset version ID for SQL Server
             needs_mapping: Whether to use reporting_account mapping
-            
+
         Returns:
             Dict with success status and optional error/report information
         """
@@ -103,10 +113,16 @@ class DatabaseUploadService:
             for file_type, blob_path in blob_paths.items():
                 logger.info(f"  {file_type}: {blob_path}")
             
-            # Initialize AccountingDataLoader with dataset_version_id
+            # Initialize AccountingDataLoader with execution parameters
             logger.info("Initializing AccountingDataLoader...")
-            self.accounting_loader = AccountingDataLoader()
-            self.accounting_loader.dataset_version_id = dataset_version_id
+            self.accounting_loader = AccountingDataLoader(
+                workspace_id=workspace_id,
+                project_id=project_id,
+                entity_id=entity_id,
+                fiscal_year=fiscal_year,
+                period_ending_date=period_ending_date,
+                dataset_version_id=dataset_version_id
+            )
             
             # Run the data loading process
             # The SPs will read directly from blob storage using External Data Source
