@@ -146,18 +146,27 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       setLocalOriginalFields(originalFields);
       saveOriginalFieldsToStorage(originalFields);
       console.log('✅ Columnas originales recibidas y guardadas:', originalFields.length);
-    } else if (executionId && localOriginalFields.length === 0) {
-      // Si no hay originalFields por prop, intentar cargar desde sessionStorage
+    }
+  }, [originalFields]);
+
+  // Efecto separado para restaurar columnas al montar (solo una vez)
+  useEffect(() => {
+    if (executionId && localOriginalFields.length === 0) {
+      // Intentar cargar columnas desde sessionStorage
       const savedFields = loadOriginalFieldsFromStorage();
       if (savedFields && savedFields.length > 0) {
         setLocalOriginalFields(savedFields);
-        console.log('🔄 Columnas originales restauradas desde sessionStorage');
+        console.log('🔄 Columnas originales restauradas desde sessionStorage:', savedFields.length);
+      } else {
+        console.log('⚠️ No se encontraron columnas guardadas en sessionStorage');
       }
     }
-  }, [originalFields, executionId]);
+  }, [executionId]); // Solo depende de executionId, se ejecuta al montar
 
   useEffect(() => {
-    if (isOpen && executionId && localOriginalFields && localOriginalFields.length > 0) {
+    // Intentar cargar mapeo incluso si no hay columnas todavía
+    // porque el mapeo puede estar guardado en sessionStorage
+    if (isOpen && executionId) {
       loadMapeoData();
     }
   }, [isOpen, executionId, localOriginalFields]);
@@ -194,6 +203,17 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         console.log('📦 Cargando mapeo desde sessionStorage');
         setFieldMappings(savedData.mappings);
         setFieldConfidences(savedData.confidences || {});
+
+        // También actualizar originalBackendMappings para el botón "Auto mapeo"
+        if (fileType === 'libro_diario') {
+          setOriginalBackendMappings({
+            mappings: savedData.mappings,
+            confidences: savedData.confidences || {}
+          });
+        } else {
+          setOriginalBackendMappings(savedData.mappings);
+        }
+        console.log('💾 originalBackendMappings actualizado desde sessionStorage');
 
         // ❌ NO guardar flag de mapeo aplicado aquí
         // El flag solo debe guardarse cuando el usuario hace click en "Aplicar Mapeo"
@@ -582,7 +602,19 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   // Usar localOriginalFields en lugar de originalFields
   const fieldsToUse = localOriginalFields.length > 0 ? localOriginalFields : originalFields || [];
 
+  // Log para debugging
+  console.log('🔍 FieldMapper render:', {
+    localOriginalFieldsCount: localOriginalFields.length,
+    originalFieldsCount: originalFields?.length || 0,
+    fieldsToUseCount: fieldsToUse.length,
+    fieldMappingsCount: Object.keys(fieldMappings).length
+  });
+
   if (!fieldsToUse || fieldsToUse.length === 0) {
+    // Si tenemos mapeos pero no columnas, mostrar un mensaje temporal
+    if (Object.keys(fieldMappings).length > 0) {
+      console.log('⏳ Mapeos disponibles pero esperando columnas...');
+    }
     return null;
   }
 
