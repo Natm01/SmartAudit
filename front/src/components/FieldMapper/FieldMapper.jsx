@@ -15,6 +15,8 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   // Estados para controlar el botón de mapeo
   const [mappingApplied, setMappingApplied] = useState(false);
   const [initialMappingsSnapshot, setInitialMappingsSnapshot] = useState({});
+  // Estado local para las columnas originales (para persistir después de recargar)
+  const [localOriginalFields, setLocalOriginalFields] = useState([]);
 
   // Claves para sessionStorage
   const getStorageKey = (suffix) => `fieldmapper_${executionId}_${suffix}`;
@@ -31,6 +33,31 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     } catch (error) {
       console.warn('Could not save field mappings to sessionStorage:', error);
     }
+  };
+
+  // Guardar columnas originales en sessionStorage
+  const saveOriginalFieldsToStorage = (fields) => {
+    try {
+      sessionStorage.setItem(getStorageKey('originalFields'), JSON.stringify(fields));
+      console.log('💾 Columnas originales guardadas en sessionStorage:', fields);
+    } catch (error) {
+      console.warn('Could not save original fields to sessionStorage:', error);
+    }
+  };
+
+  // Cargar columnas originales desde sessionStorage
+  const loadOriginalFieldsFromStorage = () => {
+    try {
+      const savedFields = sessionStorage.getItem(getStorageKey('originalFields'));
+      if (savedFields) {
+        const fields = JSON.parse(savedFields);
+        console.log('📦 Columnas originales restauradas desde sessionStorage:', fields);
+        return fields;
+      }
+    } catch (error) {
+      console.warn('Could not load original fields from sessionStorage:', error);
+    }
+    return null;
   };
 
   // Cargar mapeo desde sessionStorage
@@ -112,11 +139,28 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
 
   const databaseFields = getDatabaseFieldsFromJSON();
 
+  // Efecto para manejar originalFields: guardar cuando llegan y restaurar si no hay
   useEffect(() => {
-    if (isOpen && executionId && originalFields && originalFields.length > 0) {
+    if (originalFields && originalFields.length > 0) {
+      // Si llegan originalFields por prop, guardarlos y usarlos
+      setLocalOriginalFields(originalFields);
+      saveOriginalFieldsToStorage(originalFields);
+      console.log('✅ Columnas originales recibidas y guardadas:', originalFields.length);
+    } else if (executionId && localOriginalFields.length === 0) {
+      // Si no hay originalFields por prop, intentar cargar desde sessionStorage
+      const savedFields = loadOriginalFieldsFromStorage();
+      if (savedFields && savedFields.length > 0) {
+        setLocalOriginalFields(savedFields);
+        console.log('🔄 Columnas originales restauradas desde sessionStorage');
+      }
+    }
+  }, [originalFields, executionId]);
+
+  useEffect(() => {
+    if (isOpen && executionId && localOriginalFields && localOriginalFields.length > 0) {
       loadMapeoData();
     }
-  }, [isOpen, executionId, originalFields]);
+  }, [isOpen, executionId, localOriginalFields]);
 
   useEffect(() => {
     if (Object.keys(fieldMappings).length > 0) {
@@ -527,7 +571,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     console.log('🔓 Botón de mapeo habilitado al restaurar mapeo automático');
   };
 
-  if (!originalFields || originalFields.length === 0) {
+  // Usar localOriginalFields en lugar de originalFields
+  const fieldsToUse = localOriginalFields.length > 0 ? localOriginalFields : originalFields || [];
+
+  if (!fieldsToUse || fieldsToUse.length === 0) {
     return null;
   }
 
@@ -681,7 +728,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                             className="block w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                           >
                             <option value="">-- Seleccionar --</option>
-                            {originalFields.map((originalField) => {
+                            {fieldsToUse.map((originalField) => {
                               // Ocultar columnas ya mapeadas a otros campos, excepto la actual
                               const isAlreadyMapped = Object.entries(fieldMappings).some(
                                 ([col, field]) => col === originalField && field !== databaseField
