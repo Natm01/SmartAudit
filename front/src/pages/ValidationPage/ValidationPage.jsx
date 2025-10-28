@@ -180,7 +180,7 @@ const ValidationPage = () => {
       const execData = {
         executionId: executionId,
         projectName: projectName,
-        period: execution.period || 'PerÃ­odo no especificado',
+        period: execution.period || 'Período no especificado',
         libroDiarioFile: execution.file_name || 'Archivo no especificado',
       };
 
@@ -430,7 +430,7 @@ const ValidationPage = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Validación de Archivos Contables</h1>
               <p className="mt-2 text-sm text-gray-600">
-                Proyecto: {executionData?.projectName} | PerÃ­odo: {executionData?.period}
+                Proyecto: {executionData?.projectName} | Período: {executionData?.period}
               </p>
             </div>
           </div>
