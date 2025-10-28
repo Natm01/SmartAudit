@@ -17,6 +17,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // 🆕 Flag para controlar si ya se cargaron los datos iniciales
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+
   // Clave única en sessionStorage
   const getStorageKey = () => `mapper_data_${executionId}_${fileType}`;
 
@@ -127,25 +130,31 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const databaseFields = getDatabaseFieldsFromJSON();
 
   // ============================================
-  // EFECTO 1: Cargar datos al montar el componente
+  // EFECTO 1: Cargar datos al montar el componente (UNA VEZ)
+  // ✅ CORREGIDO: Carga desde sessionStorage SIEMPRE al montar
   // ============================================
   useEffect(() => {
-    if (!executionId || !isOpen) return;
+    if (!executionId || initialDataLoaded) return;
 
-    console.log('🔄 Iniciando carga de mapper...');
+    console.log('🔄 Iniciando carga INICIAL de mapper desde sessionStorage...');
 
     // Intentar cargar desde sessionStorage primero
     const saved = loadMapperData();
 
-    if (saved && saved.originalColumns && saved.originalColumns.length > 0) {
-      // Usar datos guardados
+    if (saved && (saved.originalColumns?.length > 0 || Object.keys(saved.mappings || {}).length > 0)) {
+      // Usar datos guardados (incluso si solo tiene mapeos)
       setMapperData(saved);
-      console.log('✅ Datos restaurados desde sessionStorage');
+      console.log('✅ Datos restaurados desde sessionStorage:', {
+        columnas: saved.originalColumns?.length || 0,
+        mapeos: Object.keys(saved.mappings || {}).length,
+        appliedToBackend: saved.appliedToBackend
+      });
     } else {
-      // No hay datos guardados, cargar desde backend
-      console.log('🌐 No hay datos guardados, cargando desde backend...');
-      fetchMapeoFromBackend();
+      console.log('ℹ️ No hay datos en sessionStorage');
     }
+
+    // ✅ SIEMPRE marcar como cargado después del primer intento
+    setInitialDataLoaded(true);
 
     // Verificar si el mapeo ya fue aplicado
     const storageKey = fileType === 'sumas_saldos'
@@ -156,7 +165,21 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     if (mappingAppliedFlag === 'true') {
       console.log('🔒 Mapeo fue aplicado previamente');
     }
-  }, [executionId, fileType, isOpen]); // Solo al montar o cambiar isOpen
+  }, [executionId, fileType]); // Solo al montar (sin isOpen)
+
+  // ============================================
+  // EFECTO 1b: Cargar desde backend cuando se abre el mapper
+  // ✅ NUEVO: Si el mapper se abre Y no hay mapeos, cargar desde backend
+  // ============================================
+  useEffect(() => {
+    if (!executionId || !isOpen || !initialDataLoaded) return;
+
+    // Solo cargar desde backend si NO hay mapeos guardados
+    if (Object.keys(mapperData.mappings).length === 0) {
+      console.log('🌐 Mapper abierto sin mapeos, cargando desde backend...');
+      fetchMapeoFromBackend();
+    }
+  }, [isOpen, initialDataLoaded]); // Cuando se abre el mapper
 
   // ============================================
   // EFECTO 2: Guardar automáticamente cuando cambien los datos
@@ -169,19 +192,24 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
 
   // ============================================
   // EFECTO 3: Sincronizar columnas desde props
+  // ✅ CORREGIDO: Solo actualiza si NO hay datos guardados
   // ============================================
   useEffect(() => {
     if (originalFields && originalFields.length > 0) {
-      // Si llegan columnas nuevas, actualizar SOLO si no las tenemos
-      if (mapperData.originalColumns.length === 0) {
-        console.log('✅ Columnas originales recibidas desde prop:', originalFields.length);
+      // Si llegan columnas nuevas, actualizar SOLO si:
+      // 1. No tenemos columnas Y
+      // 2. Ya se intentó cargar datos iniciales (para no sobrescribir antes de cargar)
+      if (mapperData.originalColumns.length === 0 && initialDataLoaded) {
+        console.log('✅ Columnas originales recibidas desde prop (sin datos previos):', originalFields.length);
         setMapperData(prev => ({
           ...prev,
           originalColumns: originalFields
         }));
+      } else if (mapperData.originalColumns.length === 0 && !initialDataLoaded) {
+        console.log('⏳ Esperando carga inicial antes de sincronizar columnas...');
       }
     }
-  }, [originalFields]);
+  }, [originalFields, initialDataLoaded]);
 
   // ============================================
   // FUNCIÓN: Cargar mapeo desde el backend
