@@ -98,11 +98,9 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
         id: 1,
         name: "Validaciones de Formato",
         validations: [
-          "Número de cuenta contable presente",
-          "Saldo inicial con formato correcto",
-          "Saldo final con formato correcto",
-          "Movimientos débito con formato correcto",
-          "Movimientos crédito con formato correcto"
+          "Fechas con formato correcto",
+          "Horas con formato correcto",
+          "Importes con formato correcto"
         ]
       }
     ]

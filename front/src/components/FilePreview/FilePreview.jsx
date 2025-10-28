@@ -492,7 +492,38 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
 
       setLoading(true);
 
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Espera inicial para dar tiempo al backend
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Polling inteligente para verificar que el archivo esté disponible
+      const maxRetries = 10;
+      let retries = 0;
+      let fileAvailable = false;
+
+      while (retries < maxRetries && !fileAvailable) {
+        try {
+          const endpoint = fileType === 'sumas_saldos'
+            ? `/api/import/preview-sumas-saldos/${encodeURIComponent(executionId)}`
+            : `/api/import/preview-journal-entries/${encodeURIComponent(executionId)}`;
+
+          const testPreview = await api.get(endpoint);
+
+          if (testPreview.data?.preview_data?.length > 0) {
+            fileAvailable = true;
+            console.log(`✅ Archivo mapeado disponible después de ${retries} reintentos`);
+          }
+        } catch (e) {
+          retries++;
+          if (retries < maxRetries) {
+            console.log(`⏳ Esperando disponibilidad del archivo... (intento ${retries}/${maxRetries})`);
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+      }
+
+      if (!fileAvailable) {
+        console.warn('⚠️ Archivo no disponible después del timeout, intentando cargar de todos modos...');
+      }
 
       isApplyingMappingRef.current = false;
       //  Resetear el flag para permitir la recarga
