@@ -263,22 +263,32 @@ async def get_sumas_saldos_validation_summary(execution_id: str):
     Retorna estado por fase (solo fase 1).
     """
     execution_service = get_execution_service()
-    
+
     try:
         execution = execution_service.get_execution(execution_id)
-        
+
         validation_results = (
-            execution.sumas_saldos_validation_results 
-            if hasattr(execution, 'sumas_saldos_validation_results') 
+            execution.sumas_saldos_validation_results
+            if hasattr(execution, 'sumas_saldos_validation_results')
             else None
         )
-        
+
+        # Verificar si la validación está en progreso
+        is_validating = (
+            execution.step == "sumas_saldos_validation" or
+            execution.status == "processing"
+        )
+
         if not validation_results:
+            # Si está validando, mostrar status "validating", sino "pending"
+            phase_status = "validating" if is_validating else "pending"
+            overall_status = "processing" if is_validating else "not_started"
+
             return {
                 "execution_id": execution_id,
-                "status": "not_started",
+                "status": overall_status,
                 "phases": [
-                    {"phase": 1, "name": "Validaciones de Formato", "status": "pending"}
+                    {"phase": 1, "name": "Validaciones de Formato", "status": phase_status}
                 ],
                 "progress": {
                     "completed": 0,
