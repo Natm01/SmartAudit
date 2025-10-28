@@ -75,47 +75,53 @@ class ResultsStorageService:
         fields = self.trial_balance_config.get("trial_balance", {}).get("fields", [])
         return [field["name"] for field in fields]
 
-    def _check_all_validations_passed(self, execution: ExecutionStatus) -> Tuple[bool, str]:
+    def _check_validations_status(self, execution: ExecutionStatus) -> Dict[str, Any]:
         """
-        Check if ALL validations passed for both journal entries and trial balance
+        Check validation status for each file type independently
 
         Returns:
-            Tuple[bool, str]: (all_passed, error_message)
+            Dict with status for each file type:
+            {
+                "journal_entries": {"can_save": bool, "error": str, "exists": bool},
+                "trial_balance": {"can_save": bool, "error": str, "exists": bool}
+            }
         """
-        errors = []
+        result = {
+            "journal_entries": {"can_save": False, "error": "", "exists": False},
+            "trial_balance": {"can_save": False, "error": "", "exists": False}
+        }
 
-        # Check if we have both types of data
+        # Check Journal Entries
         has_journal = execution.output_file is not None
-        # Use sumas_saldos_csv_path (updated after both auto and manual mapping)
-        has_trial_balance = execution.sumas_saldos_csv_path is not None
+        result["journal_entries"]["exists"] = has_journal
 
-        if not has_journal and not has_trial_balance:
-            return False, "No hay archivos procesados para guardar"
-
-        # Check Journal Entries validations (if exists)
         if has_journal:
             if not execution.validation_rules_results:
-                errors.append("Libro Diario: No se encontraron resultados de validaciones")
+                result["journal_entries"]["error"] = "No se encontraron resultados de validaciones"
             else:
                 journal_summary = execution.validation_rules_results.get("summary", {})
                 if not journal_summary.get("all_passed", False):
-                    errors.append(f"Libro Diario: Validaciones fallidas ({journal_summary.get('failed_phases', 0)} fases)")
+                    result["journal_entries"]["error"] = f"Validaciones fallidas ({journal_summary.get('failed_phases', 0)} fases)"
                     logger.warning(f"Journal validation failed: {journal_summary}")
+                else:
+                    result["journal_entries"]["can_save"] = True
 
-        # Check Trial Balance validations (if exists)
+        # Check Trial Balance
+        has_trial_balance = execution.sumas_saldos_csv_path is not None
+        result["trial_balance"]["exists"] = has_trial_balance
+
         if has_trial_balance:
             if not execution.sumas_saldos_validation_results:
-                errors.append("Sumas y Saldos: No se encontraron resultados de validaciones")
+                result["trial_balance"]["error"] = "No se encontraron resultados de validaciones"
             else:
                 trial_summary = execution.sumas_saldos_validation_results.get("summary", {})
                 if not trial_summary.get("all_passed", False):
-                    errors.append(f"Sumas y Saldos: Validaciones fallidas ({trial_summary.get('failed_phases', 0)} fases)")
+                    result["trial_balance"]["error"] = f"Validaciones fallidas ({trial_summary.get('failed_phases', 0)} fases)"
                     logger.warning(f"Trial balance validation failed: {trial_summary}")
+                else:
+                    result["trial_balance"]["can_save"] = True
 
-        if errors:
-            return False, "; ".join(errors)
-
-        return True, ""
+        return result
 
     def _create_blob_path(self, project_id: str, execution_id: str,
                          file_type: str, filename: str) -> str:
@@ -136,7 +142,8 @@ class ResultsStorageService:
     def _filter_and_save_csv(self, source_blob_url: str, columns: List[str],
                             output_path: str) -> str:
         """
-        Download CSV from Azure, filter columns, and save to temp file
+        Download CSV from Azure, select columns, and save to temp file.
+        Creates empty columns for any missing columns from config.
 
         Returns:
             Path to temporary CSV file
@@ -149,20 +156,22 @@ class ResultsStorageService:
             df = pd.read_csv(temp_source)
             logger.info(f"Read CSV with {len(df)} rows and columns: {list(df.columns)}")
 
-            # Filter columns (only keep those that exist in both config and dataframe)
-            available_columns = [col for col in columns if col in df.columns]
-            missing_columns = [col for col in columns if col not in df.columns]
+            # Create new dataframe with ALL columns from config
+            df_filtered = pd.DataFrame()
 
-            if missing_columns:
-                logger.warning(f"Missing columns in data: {missing_columns}")
+            for col in columns:
+                if col in df.columns:
+                    df_filtered[col] = df[col]
+                else:
+                    # Create empty column for missing ones
+                    df_filtered[col] = ""
+                    logger.warning(f"Column '{col}' not in source data, creating empty column")
 
-            # Select only available columns
-            df_filtered = df[available_columns]
-            logger.info(f"Filtered to {len(available_columns)} columns: {available_columns}")
+            logger.info(f"Created dataframe with {len(columns)} columns (all from config)")
 
             # Save to output path
             df_filtered.to_csv(output_path, index=False, encoding='utf-8')
-            logger.info(f"Saved filtered CSV to {output_path}")
+            logger.info(f"Saved CSV to {output_path}")
 
             return output_path
 
@@ -199,7 +208,7 @@ class ResultsStorageService:
     def save_validated_results(self, execution: ExecutionStatus,
                               project_id: str) -> Dict[str, str]:
         """
-        Save validated results to Azure Blob Storage
+        Save validated results to Azure Blob Storage independently for each file type
 
         Args:
             execution: Execution status with validation results
@@ -209,21 +218,34 @@ class ResultsStorageService:
             Dictionary with paths to saved files
 
         Raises:
-            ValueError: If validations didn't pass or required data is missing
+            ValueError: If no files can be saved
         """
-        # Check if all validations passed
-        all_passed, error_msg = self._check_all_validations_passed(execution)
-        if not all_passed:
-            raise ValueError(f"No se pueden guardar resultados: {error_msg}")
+        # Check validation status for each file type
+        validation_status = self._check_validations_status(execution)
 
-        logger.info(f"All validations passed for execution {execution.id}. Starting to save results...")
+        can_save_journal = validation_status["journal_entries"]["can_save"]
+        can_save_trial = validation_status["trial_balance"]["can_save"]
+
+        if not can_save_journal and not can_save_trial:
+            errors = []
+            if validation_status["journal_entries"]["exists"]:
+                errors.append(f"Libro Diario: {validation_status['journal_entries']['error']}")
+            if validation_status["trial_balance"]["exists"]:
+                errors.append(f"Sumas y Saldos: {validation_status['trial_balance']['error']}")
+            if not errors:
+                errors.append("No hay archivos con validaciones exitosas para guardar")
+            raise ValueError("; ".join(errors))
+
+        logger.info(f"Starting to save results for execution {execution.id}")
+        logger.info(f"  - Journal Entries: {'Yes' if can_save_journal else 'No'}")
+        logger.info(f"  - Trial Balance: {'Yes' if can_save_trial else 'No'}")
 
         saved_files = {}
         temp_files = []
 
         try:
-            # Save Journal Entries (if exists)
-            if execution.output_file:
+            # Save Journal Entries ONLY if validations passed
+            if can_save_journal and execution.output_file:
                 logger.info("Processing Libro Diario files...")
 
                 # Get columns for header and detail
@@ -238,46 +260,65 @@ class ResultsStorageService:
                 df = pd.read_csv(temp_source)
                 logger.info(f"Read journal entries CSV with {len(df)} rows")
 
-                # Separate header and detail data
-                available_header_cols = [col for col in header_columns if col in df.columns]
-                available_detail_cols = [col for col in detail_columns if col in df.columns]
+                # Create header file with ALL header columns from config
+                df_header = pd.DataFrame()
+                for col in header_columns:
+                    if col in df.columns:
+                        df_header[col] = df[col]
+                    else:
+                        df_header[col] = ""
+                        logger.warning(f"Header column '{col}' not in source data, creating empty column")
 
-                # Create header file (unique by journal_entry_id)
-                if available_header_cols:
-                    df_header = df[available_header_cols].drop_duplicates(subset=['journal_entry_id'], keep='first')
-                    temp_header = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
-                    temp_header.close()
-                    temp_files.append(temp_header.name)
+                # Remove duplicates by journal_entry_id
+                if 'journal_entry_id' in df_header.columns:
+                    df_header = df_header.drop_duplicates(subset=['journal_entry_id'], keep='first')
 
-                    df_header.to_csv(temp_header.name, index=False, encoding='utf-8')
-                    logger.info(f"Created header file with {len(df_header)} rows and {len(available_header_cols)} columns")
+                temp_header = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+                temp_header.close()
+                temp_files.append(temp_header.name)
 
-                    # Upload header
-                    header_filename = f"{execution.id}-je-cabecera.csv"
-                    header_blob_path = self._create_blob_path(project_id, execution.id, "je", header_filename)
-                    saved_files['journal_header'] = self._upload_to_results_container(temp_header.name, header_blob_path)
+                df_header.to_csv(temp_header.name, index=False, encoding='utf-8')
+                logger.info(f"Created header file with {len(df_header)} rows and {len(header_columns)} columns (all from config)")
 
-                # Create detail file (all rows with detail columns)
-                if available_detail_cols:
-                    # Include journal_entry_id to link with header
-                    detail_cols_with_id = ['journal_entry_id'] + available_detail_cols if 'journal_entry_id' not in available_detail_cols else available_detail_cols
-                    detail_cols_with_id = [col for col in detail_cols_with_id if col in df.columns]
+                # Upload header
+                header_filename = f"{execution.id}-je-cabecera.csv"
+                header_blob_path = self._create_blob_path(project_id, execution.id, "je", header_filename)
+                saved_files['journal_header'] = self._upload_to_results_container(temp_header.name, header_blob_path)
 
-                    df_detail = df[detail_cols_with_id]
-                    temp_detail = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
-                    temp_detail.close()
-                    temp_files.append(temp_detail.name)
+                # Create detail file with ALL detail columns from config
+                df_detail = pd.DataFrame()
 
-                    df_detail.to_csv(temp_detail.name, index=False, encoding='utf-8')
-                    logger.info(f"Created detail file with {len(df_detail)} rows and {len(detail_cols_with_id)} columns")
+                # Always include journal_entry_id first if exists
+                if 'journal_entry_id' in df.columns:
+                    df_detail['journal_entry_id'] = df['journal_entry_id']
+                else:
+                    df_detail['journal_entry_id'] = ""
+                    logger.warning("Column 'journal_entry_id' not in source data, creating empty column")
 
-                    # Upload detail
-                    detail_filename = f"{execution.id}-je-detalle.csv"
-                    detail_blob_path = self._create_blob_path(project_id, execution.id, "je", detail_filename)
-                    saved_files['journal_detail'] = self._upload_to_results_container(temp_detail.name, detail_blob_path)
+                # Add all other detail columns
+                for col in detail_columns:
+                    if col == 'journal_entry_id':
+                        continue  # Already added
+                    if col in df.columns:
+                        df_detail[col] = df[col]
+                    else:
+                        df_detail[col] = ""
+                        logger.warning(f"Detail column '{col}' not in source data, creating empty column")
 
-            # Save Trial Balance (if exists)
-            if execution.sumas_saldos_csv_path:
+                temp_detail = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+                temp_detail.close()
+                temp_files.append(temp_detail.name)
+
+                df_detail.to_csv(temp_detail.name, index=False, encoding='utf-8')
+                logger.info(f"Created detail file with {len(df_detail)} rows and {len(detail_columns) + 1} columns (all from config + journal_entry_id)")
+
+                # Upload detail
+                detail_filename = f"{execution.id}-je-detalle.csv"
+                detail_blob_path = self._create_blob_path(project_id, execution.id, "je", detail_filename)
+                saved_files['journal_detail'] = self._upload_to_results_container(temp_detail.name, detail_blob_path)
+
+            # Save Trial Balance ONLY if validations passed
+            if can_save_trial and execution.sumas_saldos_csv_path:
                 logger.info("Processing Sumas y Saldos file...")
 
                 trial_columns = self._get_trial_balance_columns()

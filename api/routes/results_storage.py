@@ -117,14 +117,24 @@ async def save_validated_results(
         # Verify execution exists
         execution = execution_service.get_execution(execution_id)
 
-        # Verify that validations exist and passed
+        # Check validation status for each file type
         results_service = get_results_storage_service()
-        all_passed, error_msg = results_service._check_all_validations_passed(execution)
+        validation_status = results_service._check_validations_status(execution)
 
-        if not all_passed:
+        can_save_journal = validation_status["journal_entries"]["can_save"]
+        can_save_trial = validation_status["trial_balance"]["can_save"]
+
+        if not can_save_journal and not can_save_trial:
+            errors = []
+            if validation_status["journal_entries"]["exists"]:
+                errors.append(f"Libro Diario: {validation_status['journal_entries']['error']}")
+            if validation_status["trial_balance"]["exists"]:
+                errors.append(f"Sumas y Saldos: {validation_status['trial_balance']['error']}")
+            if not errors:
+                errors.append("No hay archivos con validaciones exitosas para guardar")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No se pueden guardar resultados: {error_msg}"
+                detail="; ".join(errors)
             )
 
         # Start save in background
@@ -169,38 +179,50 @@ async def check_save_results_status(execution_id: str):
         # Get execution
         execution = execution_service.get_execution(execution_id)
 
-        # Check validations
-        all_passed, error_msg = results_service._check_all_validations_passed(execution)
+        # Check validation status for each file type
+        validation_check = results_service._check_validations_status(execution)
 
-        # Build validation status
+        # Build validation status with detailed information
         validation_status = {
             "journal_entries": {
-                "exists": execution.output_file is not None,
+                "exists": validation_check["journal_entries"]["exists"],
                 "validated": execution.validation_rules_results is not None,
-                "passed": False
+                "passed": validation_check["journal_entries"]["can_save"],
+                "error": validation_check["journal_entries"]["error"]
             },
             "trial_balance": {
-                "exists": execution.sumas_saldos_csv_path is not None,
+                "exists": validation_check["trial_balance"]["exists"],
                 "validated": execution.sumas_saldos_validation_results is not None,
-                "passed": False
+                "passed": validation_check["trial_balance"]["can_save"],
+                "error": validation_check["trial_balance"]["error"]
             }
         }
 
         if execution.validation_rules_results:
             journal_summary = execution.validation_rules_results.get("summary", {})
-            validation_status["journal_entries"]["passed"] = journal_summary.get("all_passed", False)
             validation_status["journal_entries"]["summary"] = journal_summary
 
         if execution.sumas_saldos_validation_results:
             trial_summary = execution.sumas_saldos_validation_results.get("summary", {})
-            validation_status["trial_balance"]["passed"] = trial_summary.get("all_passed", False)
             validation_status["trial_balance"]["summary"] = trial_summary
 
-        message = "Resultados pueden ser guardados" if all_passed else error_msg
+        can_save_journal = validation_check["journal_entries"]["can_save"]
+        can_save_trial = validation_check["trial_balance"]["can_save"]
+        can_save = can_save_journal or can_save_trial
+
+        if can_save:
+            files_to_save = []
+            if can_save_journal:
+                files_to_save.append("Libro Diario")
+            if can_save_trial:
+                files_to_save.append("Sumas y Saldos")
+            message = f"Se pueden guardar: {', '.join(files_to_save)}"
+        else:
+            message = "Ningún archivo tiene validaciones exitosas"
 
         return SaveResultsStatusResponse(
             execution_id=execution_id,
-            can_save=all_passed,
+            can_save=can_save,
             validation_status=validation_status,
             message=message
         )

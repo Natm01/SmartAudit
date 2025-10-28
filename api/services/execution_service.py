@@ -117,16 +117,13 @@ class ExecutionService:
         logger.info(f"Created execution: {execution_id} for file: {file_name}")
         return execution_id
     
-    def create_coordinated_execution(self, file_name: str, file_path: str, 
+    def create_coordinated_execution(self, file_name: str, file_path: str,
                                    file_type: str, test_type: str,
                                    project_id: str = None, period: str = None,
                                    parent_execution_id: str = None) -> str:
         """Create execution with full coordination metadata and persistence"""
-        # Para Sumas y Saldos, crear ID derivado del parent
-        if parent_execution_id and file_type == "Sys":
-            execution_id = f"{parent_execution_id}-ss"
-        else:
-            execution_id = str(uuid.uuid4())
+        # Siempre crear un nuevo UUID único
+        execution_id = str(uuid.uuid4())
         
         now = datetime.now().isoformat()
         

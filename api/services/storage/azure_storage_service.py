@@ -80,11 +80,8 @@ class AzureStorageService:
         original_name_without_ext = path.stem  # Nombre sin extensión
         
         if execution_id:
-            # Remove -ss suffix if present for consistent naming
-            base_execution_id = execution_id.replace('-ss', '') if execution_id.endswith('-ss') else execution_id
-            
             # Build blob name parts
-            parts = [base_execution_id]
+            parts = [execution_id]
             
             # Para uploads, NO incluir "upload" - solo ID + nombre original
             if stage == "upload":
