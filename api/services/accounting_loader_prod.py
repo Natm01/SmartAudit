@@ -20,17 +20,27 @@ class AccountingDataLoader:
           - analytics.entry_type: business_category por apunte **SIEMPRE calculado**, FK a ADS
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        workspace_id: int,
+        project_id: int,
+        entity_id: int,
+        fiscal_year: int,
+        period_ending_date: str,
+        dataset_version_id: int = 201
+    ):
         # Parámetros fijos
         self.tenant_id = 101
-        self.workspace_id = 101
-        self.project_id = 101
-        self.entity_id = 101
         self.dataset_id = 101
-        self.dataset_version_id = 201 # 200,201,202,203,204,205,206,207,208,209,210
         self.platform_user_id = 1
-        self.fiscal_year = 2024
-        self.period_ending_date = '2024-12-31'
+
+        # Parámetros desde execution
+        self.workspace_id = workspace_id
+        self.project_id = project_id
+        self.entity_id = entity_id
+        self.fiscal_year = fiscal_year
+        self.period_ending_date = period_ending_date
+        self.dataset_version_id = dataset_version_id
 
         # Usa mapping de reporting_account para bitmask/combination
         self.uses_mapping_default = False
@@ -1814,12 +1824,20 @@ class AccountingDataLoader:
 
 def main():
     """Main function for command-line execution"""
-    loader = AccountingDataLoader()
+    # Parámetros de ejemplo para testing
+    loader = AccountingDataLoader(
+        workspace_id=101,
+        project_id=101,
+        entity_id=101,
+        fiscal_year=2024,
+        period_ending_date='2024-12-31',
+        dataset_version_id=201
+    )
 
     # Archivos CSV
-    je_file = "libro-diario/journal_entries_Redur.csv"
-    jel_file = "libro-diario/journal_entry_lines_Redur.csv"
-    tb_file = "libro-diario/trial_balance_Redur.csv"
+    je_file = "libro-diario-resultados/je/journal_entries_Redur.csv"
+    jel_file = "libro-diario-resultados/je/journal_entry_lines_Redur.csv"
+    tb_file = "libro-diario-resultados/sys/trial_balance_Redur.csv"
 
     # ¿Usar mapping de reporting_account para bitmask/combination?
     needs_mapping = False
