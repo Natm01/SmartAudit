@@ -8,6 +8,9 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // ✅ NUEVO: Estado para mantener headers ORIGINALES del Excel
+  const [originalHeaders, setOriginalHeaders] = useState([]);
+
   // ============================================
   // CLAVE UNIFICADA: Usar la MISMA que FieldMapper
   // ============================================
@@ -333,6 +336,51 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     return buildTable(rows);
   };
 
+  // ✅ NUEVA FUNCIÓN: Cargar headers ORIGINALES (siempre del archivo Excel)
+  const fetchOriginalHeaders = async () => {
+    if (!executionId) return [];
+
+    try {
+      console.log('📋 Cargando headers ORIGINALES del archivo Excel...');
+
+      let url;
+      if (fileType === 'sumas_saldos') {
+        url = `/api/import/preview-sumas-saldos/${encodeURIComponent(executionId)}/original?_=${Date.now()}`;
+      } else {
+        url = `/api/import/preview/${encodeURIComponent(executionId)}?_=${Date.now()}`;
+      }
+
+      const resp = await api.get(url, {
+        headers: { Accept: 'application/json, text/plain, */*' },
+        transformResponse: [(data) => {
+          try {
+            return typeof data === 'string' ? JSON.parse(data) : data;
+          } catch {
+            return { data: [] };
+          }
+        }],
+        timeout: 30000
+      });
+
+      const payload = resp?.data || {};
+
+      let rows;
+      if (fileType === 'sumas_saldos') {
+        rows = pickRowsSumasSaldos(payload);
+      } else {
+        rows = pickRowsLibroDiario(payload);
+      }
+
+      const table = buildTable(rows);
+
+      console.log('✅ Headers originales obtenidos:', table.headers);
+      return table.headers;
+    } catch (error) {
+      console.error('❌ Error al cargar headers originales:', error);
+      return [];
+    }
+  };
+
   const loadPreviewData = async () => {
     if (!executionId) return;
 
@@ -384,6 +432,16 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       console.log('📊 Headers del preview:', t.headers);
 
       setPreviewData(t);
+
+      // ✅ NUEVO: Cargar headers ORIGINALES (solo si no los tenemos ya)
+      if (originalHeaders.length === 0) {
+        console.log('📋 Primera carga - obteniendo headers originales...');
+        const origHeaders = await fetchOriginalHeaders();
+        if (origHeaders.length > 0) {
+          setOriginalHeaders(origHeaders);
+          console.log('✅ Headers originales guardados:', origHeaders);
+        }
+      }
 
       //  IMPORTANTE: Marcar que ya se cargó el preview
       previewLoadedRef.current = true;
@@ -625,7 +683,7 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
 
       {previewData && (
         <FieldMapper
-          originalFields={previewData.headers}
+          originalFields={originalHeaders}
           executionId={executionId}
           fileType={fileType}
           isOpen={isMapperOpen}
