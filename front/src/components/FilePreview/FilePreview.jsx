@@ -8,6 +8,11 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // ============================================
+  // CLAVE UNIFICADA: Usar la MISMA que FieldMapper
+  // ============================================
+  const getStorageKey = () => `mapper_data_${executionId}_${fileType}`;
+
   // Inicializar showMappedPreview y fieldMappings desde sessionStorage
   const getInitialMappedPreviewState = () => {
     if (!executionId) return false;
@@ -33,14 +38,14 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     if (!executionId) return {};
 
     // CRÍTICO: Solo cargar mapeos si el mapeo fue aplicado
-    const storageKey = fileType === 'sumas_saldos'
+    const mappingAppliedStorageKey = fileType === 'sumas_saldos'
       ? `mappingApplied_${executionId}-ss`
       : `mappingApplied_${executionId}`;
 
-    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+    const mappingAppliedFlag = sessionStorage.getItem(mappingAppliedStorageKey);
 
     console.log(`🔍 getInitialFieldMappings (${fileType}):`, {
-      storageKey,
+      mappingAppliedStorageKey,
       mappingAppliedFlag,
       shouldLoadMappings: mappingAppliedFlag === 'true'
     });
@@ -50,45 +55,48 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       return {};
     }
 
-    // Buscar mapeos en sessionStorage
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.includes(executionId) && key.includes('fieldMappings')) {
-        try {
-          const savedMappings = sessionStorage.getItem(key);
-          const parsed = JSON.parse(savedMappings);
+    // ✅ CORREGIDO: Usar la MISMA clave que FieldMapper
+    const mapperDataKey = getStorageKey();
 
-          let mappings = {};
-          // FieldMapper siempre guarda con estructura { mappings: {...}, confidences: {...} }
-          if (parsed.mappings) {
-            mappings = parsed.mappings;
-          } else {
-            // Formato antiguo (solo por compatibilidad)
-            mappings = parsed;
-          }
+    try {
+      const saved = sessionStorage.getItem(mapperDataKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
 
-          if (Object.keys(mappings).length > 0) {
-            // Reconstruir mapeos en formato correcto para preview mapeado
-            // Los mapeos guardados son {columnaExcel: campoBD}
-            // Pero para el preview mapeado necesitamos {campoBD: campoBD}
-            const reconstructedMappings = {};
-            Object.entries(mappings).forEach(([excelCol, bdField]) => {
-              if (bdField) {
-                reconstructedMappings[bdField] = bdField;
-              }
-            });
+        console.log(`💾 Leyendo desde clave correcta: ${mapperDataKey}`, parsed);
 
-            console.log('🎨 Inicializando fieldMappings desde sessionStorage:');
-            console.log('   Mapeos originales:', mappings);
-            console.log('   Mapeos reconstruidos:', reconstructedMappings);
+        let mappings = {};
+        // FieldMapper guarda con estructura { mappings: {...}, confidences: {...}, ... }
+        if (parsed.mappings) {
+          mappings = parsed.mappings;
+        } else {
+          // Formato antiguo (solo por compatibilidad)
+          mappings = parsed;
+        }
 
-            return reconstructedMappings;
-          }
-        } catch (e) {
-          console.error('❌ Error al parsear mapeos iniciales:', e);
+        if (Object.keys(mappings).length > 0) {
+          // Reconstruir mapeos en formato correcto para preview mapeado
+          // Los mapeos guardados son {columnaExcel: campoBD}
+          // Pero para el preview mapeado necesitamos {campoBD: campoBD}
+          const reconstructedMappings = {};
+          Object.entries(mappings).forEach(([excelCol, bdField]) => {
+            if (bdField) {
+              reconstructedMappings[bdField] = bdField;
+            }
+          });
+
+          console.log('🎨 Inicializando fieldMappings desde sessionStorage:');
+          console.log('   Clave usada:', mapperDataKey);
+          console.log('   Mapeos originales:', mappings);
+          console.log('   Mapeos reconstruidos:', reconstructedMappings);
+
+          return reconstructedMappings;
         }
       }
+    } catch (e) {
+      console.error(`❌ Error al parsear mapeos desde ${mapperDataKey}:`, e);
     }
+
     return {};
   };
 
@@ -104,14 +112,14 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     if (!executionId) return {};
 
     // CRÍTICO: Verificar el flag correcto según el tipo de archivo
-    const storageKey = fileType === 'sumas_saldos'
+    const mappingAppliedStorageKey = fileType === 'sumas_saldos'
       ? `mappingApplied_${executionId}-ss`
       : `mappingApplied_${executionId}`;
 
-    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+    const mappingAppliedFlag = sessionStorage.getItem(mappingAppliedStorageKey);
 
     console.log(`🔍 getInitialAppliedMappings (${fileType}):`, {
-      storageKey,
+      mappingAppliedStorageKey,
       mappingAppliedFlag,
       shouldLoadApplied: mappingAppliedFlag === 'true'
     });
@@ -121,31 +129,34 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       return {};
     }
 
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.includes(executionId) && key.includes('fieldMappings')) {
-        try {
-          const savedMappings = sessionStorage.getItem(key);
-          const parsed = JSON.parse(savedMappings);
+    // ✅ CORREGIDO: Usar la MISMA clave que FieldMapper
+    const mapperDataKey = getStorageKey();
 
-          let mappings = {};
-          // FieldMapper siempre guarda con estructura { mappings: {...}, confidences: {...} }
-          if (parsed.mappings) {
-            mappings = parsed.mappings;
-          } else {
-            // Formato antiguo (solo por compatibilidad)
-            mappings = parsed;
-          }
+    try {
+      const saved = sessionStorage.getItem(mapperDataKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
 
-          if (Object.keys(mappings).length > 0) {
-            console.log('📌 Inicializando appliedMappingsRef desde sessionStorage:', mappings);
-            return mappings;
-          }
-        } catch (e) {
-          console.error('❌ Error al parsear appliedMappings iniciales:', e);
+        console.log(`💾 Leyendo appliedMappings desde clave correcta: ${mapperDataKey}`, parsed);
+
+        let mappings = {};
+        // FieldMapper guarda con estructura { mappings: {...}, confidences: {...}, ... }
+        if (parsed.mappings) {
+          mappings = parsed.mappings;
+        } else {
+          // Formato antiguo (solo por compatibilidad)
+          mappings = parsed;
+        }
+
+        if (Object.keys(mappings).length > 0) {
+          console.log('📌 Inicializando appliedMappingsRef desde sessionStorage:', mappings);
+          return mappings;
         }
       }
+    } catch (e) {
+      console.error(`❌ Error al parsear appliedMappings desde ${mapperDataKey}:`, e);
     }
+
     return {};
   };
 
@@ -188,86 +199,88 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
     return { headers, table };
   };
 
-  //  Función que busca en TODAS las keys de sessionStorage
+  //  ✅ CORREGIDO: Función que busca usando la clave CORRECTA
   const loadMappingsFromStorage = () => {
     if (!executionId) return false;
 
-    console.log('💾 Buscando mapeos en TODAS las keys de sessionStorage...');
+    console.log('💾 Buscando mapeos en sessionStorage con clave correcta...');
 
     // CRÍTICO: Verificar el flag correcto según el tipo de archivo
-    const storageKey = fileType === 'sumas_saldos'
+    const mappingAppliedStorageKey = fileType === 'sumas_saldos'
       ? `mappingApplied_${executionId}-ss`
       : `mappingApplied_${executionId}`;
 
-    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
+    const mappingAppliedFlag = sessionStorage.getItem(mappingAppliedStorageKey);
     const wasExplicitlyApplied = mappingAppliedFlag === 'true';
 
     console.log(`🔍 Mapeo explícitamente aplicado? (${fileType}):`, {
-      storageKey,
+      mappingAppliedStorageKey,
       mappingAppliedFlag,
       wasExplicitlyApplied
     });
 
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
+    // ✅ CORREGIDO: Usar la MISMA clave que FieldMapper
+    const mapperDataKey = getStorageKey();
 
-      if (key && key.includes(executionId) && key.includes('fieldMappings')) {
-        console.log(`💾 Key encontrada: ${key}`);
+    try {
+      const saved = sessionStorage.getItem(mapperDataKey);
 
-        try {
-          const savedMappings = sessionStorage.getItem(key);
-          const parsed = JSON.parse(savedMappings);
-          console.log(`💾 Contenido:`, parsed);
+      if (saved) {
+        console.log(`💾 Datos encontrados en clave: ${mapperDataKey}`);
 
-          let mappings = {};
-          // FieldMapper siempre guarda con estructura { mappings: {...}, confidences: {...} }
-          if (parsed.mappings) {
-            mappings = parsed.mappings;
-          } else {
-            // Formato antiguo (solo por compatibilidad)
-            mappings = parsed;
-          }
+        const parsed = JSON.parse(saved);
+        console.log(`💾 Contenido:`, parsed);
 
-          if (Object.keys(mappings).length > 0) {
-            console.log(` RESTAURANDO ${Object.keys(mappings).length} mapeos desde key: ${key}`);
-
-            // CRÍTICO: Solo marcar como aplicado si fue explícitamente aplicado
-            if (wasExplicitlyApplied) {
-              appliedMappingsRef.current = mappings;
-
-              // Reconstruir mapeos para el preview mapeado
-              // Los mapeos guardados son {columnaExcel: campoBD}
-              // Pero para el preview mapeado necesitamos {campoBD: campoBD}
-              const reconstructedMappings = {};
-              Object.entries(mappings).forEach(([excelCol, bdField]) => {
-                if (bdField) {
-                  reconstructedMappings[bdField] = bdField;
-                }
-              });
-
-              setFieldMappings(reconstructedMappings);
-              setShowMappedNames(true);
-              setShowMappedPreview(true);
-              console.log('✅ Preview mapeado activado (mapeo fue aplicado explícitamente con botón "Aplicar Mapeo")');
-              console.log('   Mapeos reconstruidos:', reconstructedMappings);
-            } else {
-              // NO cargar los mapeos visuales si no fueron aplicados explícitamente
-              // Los mapeos están en sessionStorage para FieldMapper, pero NO para el preview
-              setFieldMappings({});  // NO cargar mapeos visuales
-              setShowMappedNames(false);
-              setShowMappedPreview(false);
-              console.log('⚠️ Mapeos encontrados en sessionStorage pero NO aplicados explícitamente');
-              console.log('   Preview permanece ORIGINAL hasta que usuario haga click en "Aplicar Mapeo"');
-            }
-            return wasExplicitlyApplied;
-          }
-        } catch (e) {
-          console.error('❌ Error al parsear key:', key, e);
+        let mappings = {};
+        // FieldMapper guarda con estructura { mappings: {...}, confidences: {...}, ... }
+        if (parsed.mappings) {
+          mappings = parsed.mappings;
+        } else {
+          // Formato antiguo (solo por compatibilidad)
+          mappings = parsed;
         }
+
+        if (Object.keys(mappings).length > 0) {
+          console.log(`✅ RESTAURANDO ${Object.keys(mappings).length} mapeos desde: ${mapperDataKey}`);
+
+          // CRÍTICO: Solo marcar como aplicado si fue explícitamente aplicado
+          if (wasExplicitlyApplied) {
+            appliedMappingsRef.current = mappings;
+
+            // Reconstruir mapeos para el preview mapeado
+            // Los mapeos guardados son {columnaExcel: campoBD}
+            // Pero para el preview mapeado necesitamos {campoBD: campoBD}
+            const reconstructedMappings = {};
+            Object.entries(mappings).forEach(([excelCol, bdField]) => {
+              if (bdField) {
+                reconstructedMappings[bdField] = bdField;
+              }
+            });
+
+            setFieldMappings(reconstructedMappings);
+            setShowMappedNames(true);
+            setShowMappedPreview(true);
+            console.log('✅ Preview mapeado activado (mapeo fue aplicado explícitamente con botón "Aplicar Mapeo")');
+            console.log('   Mapeos reconstruidos:', reconstructedMappings);
+          } else {
+            // NO cargar los mapeos visuales si no fueron aplicados explícitamente
+            // Los mapeos están en sessionStorage para FieldMapper, pero NO para el preview
+            setFieldMappings({});  // NO cargar mapeos visuales
+            setShowMappedNames(false);
+            setShowMappedPreview(false);
+            console.log('⚠️ Mapeos encontrados en sessionStorage pero NO aplicados explícitamente');
+            console.log('   Preview permanece ORIGINAL hasta que usuario haga click en "Aplicar Mapeo"');
+          }
+          return wasExplicitlyApplied;
+        }
+      } else {
+        console.log(`ℹ️ No se encontraron datos en clave: ${mapperDataKey}`);
       }
+    } catch (e) {
+      console.error(`❌ Error al parsear mapeos desde ${mapperDataKey}:`, e);
     }
 
-    console.log('ℹ️ No se encontraron mapeos');
+    console.log('ℹ️ No se encontraron mapeos aplicados');
     return false;
   };
 
