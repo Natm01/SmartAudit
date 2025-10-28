@@ -193,6 +193,16 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
       return;
     }
 
+    // ✅ CRÍTICO: Limpiar timestamp de mapeo al INICIAR validación
+    // Esto previene que el useEffect detecte el timestamp como "nuevo mapeo"
+    // cuando en realidad ya se estaba validando
+    try {
+      sessionStorage.removeItem(getStorageKey('mappingAppliedAt'));
+      console.log('🧹 Timestamp de mapeo limpiado al iniciar validación');
+    } catch (error) {
+      console.warn('Could not clear mapping timestamp:', error);
+    }
+
     setIsValidating(true);
     setIsExpanded(true);
     setValidationError(null);
