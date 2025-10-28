@@ -160,12 +160,58 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       }
 
       console.log(`🔍 Obteniendo mapeo desde el backend (${fileType})...`);
-      
+
       if (fileType === 'sumas_saldos') {
-        const statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
+        let statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
+
+        // Si no hay mapeo o está vacío, iniciar el proceso automático
+        if (!statusResult.success || !statusResult.data.mapping || Object.keys(statusResult.data.mapping).length === 0) {
+          console.log('🚀 No se encontró mapeo de Sumas y Saldos, iniciando proceso automático...');
+
+          const startMapeoResult = await importService.startSumasSaldosMapeo(executionId);
+
+          if (startMapeoResult.success) {
+            console.log('✅ Proceso de mapeo iniciado, esperando completación...');
+
+            // Polling para esperar a que el mapeo se complete
+            let attempts = 0;
+            const maxAttempts = 30; // 30 intentos * 2 segundos = 1 minuto máximo
+            let mapeoCompleted = false;
+
+            while (!mapeoCompleted && attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Esperar 2 segundos
+
+              statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
+              attempts++;
+
+              if (statusResult.success && statusResult.data.status) {
+                const status = statusResult.data.status.toLowerCase();
+                console.log(`🔄 Intento ${attempts}/${maxAttempts} - Estado: ${status}`);
+
+                if (status === 'completed') {
+                  mapeoCompleted = true;
+                  console.log('✅ Mapeo de Sumas y Saldos completado');
+                  break;
+                } else if (status === 'failed' || status === 'error') {
+                  console.error('❌ Mapeo de Sumas y Saldos falló:', statusResult.data.error);
+                  break;
+                }
+              }
+            }
+
+            if (!mapeoCompleted) {
+              console.warn('⚠️ Timeout esperando mapeo de Sumas y Saldos');
+            }
+          } else {
+            console.error('❌ Error al iniciar mapeo de Sumas y Saldos:', startMapeoResult.error);
+          }
+        }
+
+        // Intentar cargar el mapeo nuevamente después del proceso
+        statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
 
         if (statusResult.success && statusResult.data.mapping) {
-          console.log('Mapeo de Sumas y Saldos encontrado:', statusResult.data.mapping);
+          console.log('📋 Mapeo de Sumas y Saldos encontrado:', statusResult.data.mapping);
 
           const backendMapping = statusResult.data.mapping || {};
           const frontendMappings = {};
@@ -184,9 +230,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
           console.log('ℹ️ Automapeo de Sumas y Saldos cargado en la tabla, pero flag mappingApplied NO modificado');
           console.log('   El usuario debe hacer click en "Aplicar Mapeo" para activar el preview azul');
         } else {
-          console.log('🆕 Sumas y Saldos sin mapeo previo, iniciando desde cero');
+          console.log('⚠️ No se pudo cargar el mapeo de Sumas y Saldos');
         }
-        
+
       } else {
         const fieldsResult = await importService.getFieldsMapping(executionId);
 
