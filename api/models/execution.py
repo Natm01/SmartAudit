@@ -52,11 +52,16 @@ class ExecutionStatus(BaseModel):
     sumas_saldos_unmapped_count: Optional[int] = 0  # Número de campos sin mapear
     
     # ==========================================
-    # 🆕 NUEVO CAMPO PARA VALIDACIONES CONTABLES
+    # 🆕 CAMPOS PARA VALIDACIONES CONTABLES
     # ==========================================
     validation_rules_results: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Results from the 4-phase accounting validation rules process"
+        description="Results from the 4-phase accounting validation rules process (Libro Diario)"
+    )
+
+    sumas_saldos_validation_results: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Results from the validation process for Sumas y Saldos (Trial Balance)"
     )
 
 class UploadResponse(BaseModel):

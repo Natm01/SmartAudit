@@ -188,16 +188,19 @@ class ExecutionService:
             'mapeo_results', 'manual_mapping_required', 'unmapped_fields_count',
             'file_name',
             'file_size', 'file_extension',  # Metadatos del archivo
-            'output_file',  # 🆕 AGREGAR ESTA LÍNEA
-            'validation_rules_results',  # 🆕 AGREGAR ESTA LÍNEA
+            'output_file',
+            'validation_rules_results',  # Resultados de validación Libro Diario
             'sumas_saldos_raw_path', 'sumas_saldos_status', 'sumas_saldos_mapping',
             'sumas_saldos_csv_path', 'sumas_saldos_stats', 'sumas_saldos_error',
-            'sumas_saldos_manual_mapping_required', 'sumas_saldos_unmapped_count'
+            'sumas_saldos_manual_mapping_required', 'sumas_saldos_unmapped_count',
+            'sumas_saldos_validation_results'  # 🆕 Resultados de validación Sumas y Saldos
         }
         
         updated_fields = []
         for key, value in kwargs.items():
-            if key in allowed_fields and key in execution_dict:
+            if key in allowed_fields:
+                # Actualizar el campo incluso si no existe en execution_dict
+                # (para campos nuevos agregados al modelo después)
                 execution_dict[key] = value
                 updated_fields.append(key)
         
