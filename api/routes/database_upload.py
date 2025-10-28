@@ -22,12 +22,11 @@ router = APIRouter(prefix="/smau-proto/api/import", tags=["database_upload"])
 class DatabaseUploadRequest(BaseModel):
     """Request to upload data to database"""
     execution_id: str
+    tenant_id: int
     workspace_id: int
     project_id: int
-    entity_id: int
     fiscal_year: int
     period_ending_date: str
-    dataset_version_id: Optional[int] = 201
     needs_mapping: Optional[bool] = False
 
 
@@ -54,12 +53,11 @@ class DatabaseUploadStatusResponse(BaseModel):
 
 async def upload_to_database_background(
     execution_id: str,
+    tenant_id: int,
     workspace_id: int,
     project_id: int,
-    entity_id: int,
     fiscal_year: int,
     period_ending_date: str,
-    dataset_version_id: int,
     needs_mapping: bool
 ):
     """Background task for database upload"""
@@ -79,12 +77,11 @@ async def upload_to_database_background(
         # Execute database upload
         result = await db_upload_service.upload_to_database(
             execution_id=execution_id,
+            tenant_id=tenant_id,
             workspace_id=workspace_id,
             project_id=project_id,
-            entity_id=entity_id,
             fiscal_year=fiscal_year,
             period_ending_date=period_ending_date,
-            dataset_version_id=dataset_version_id,
             needs_mapping=needs_mapping
         )
         
@@ -169,12 +166,11 @@ async def start_database_upload(
         background_tasks.add_task(
             upload_to_database_background,
             request.execution_id,
+            request.tenant_id,
             request.workspace_id,
             request.project_id,
-            request.entity_id,
             request.fiscal_year,
             request.period_ending_date,
-            request.dataset_version_id,
             request.needs_mapping
         )
         

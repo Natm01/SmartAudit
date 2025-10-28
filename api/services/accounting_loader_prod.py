@@ -22,25 +22,24 @@ class AccountingDataLoader:
 
     def __init__(
         self,
+        tenant_id: int,
         workspace_id: int,
         project_id: int,
-        entity_id: int,
         fiscal_year: int,
-        period_ending_date: str,
-        dataset_version_id: int = 201
+        period_ending_date: str
     ):
         # Parámetros fijos
-        self.tenant_id = 101
+        self.entity_id = 101
         self.dataset_id = 101
+        self.dataset_version_id = 201
         self.platform_user_id = 1
 
         # Parámetros desde execution
+        self.tenant_id = tenant_id
         self.workspace_id = workspace_id
         self.project_id = project_id
-        self.entity_id = entity_id
         self.fiscal_year = fiscal_year
         self.period_ending_date = period_ending_date
-        self.dataset_version_id = dataset_version_id
 
         # Usa mapping de reporting_account para bitmask/combination
         self.uses_mapping_default = False
@@ -1826,12 +1825,11 @@ def main():
     """Main function for command-line execution"""
     # Parámetros de ejemplo para testing
     loader = AccountingDataLoader(
+        tenant_id=101,
         workspace_id=101,
         project_id=101,
-        entity_id=101,
         fiscal_year=2024,
-        period_ending_date='2024-12-31',
-        dataset_version_id=201
+        period_ending_date='2024-12-31'
     )
 
     # Archivos CSV
