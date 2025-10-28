@@ -6,7 +6,7 @@ import journalEntriesMapping from '../../config/journal_entries_table_mapping.js
 import trialBalanceMapping from '../../config/trial_balance_table_mapping.json';
 
 const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileType = 'libro_diario', executionId }) => {
-  // Estado único unificado para el mapper
+  // ✅ ESTADO ÚNICO Y SIMPLE
   const [mapperData, setMapperData] = useState({
     originalColumns: [],
     mappings: {},
@@ -17,14 +17,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 🆕 Flag para controlar si ya se cargaron los datos iniciales
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-
   // Clave única en sessionStorage
   const getStorageKey = () => `mapper_data_${executionId}_${fileType}`;
 
   // ============================================
-  // FUNCIÓN UNIFICADA: Guardar TODO en sessionStorage
+  // ✅ FUNCIÓN SIMPLE: Guardar TODO
   // ============================================
   const saveMapperData = (data) => {
     if (!executionId) return;
@@ -37,18 +34,19 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         fileType
       };
       sessionStorage.setItem(getStorageKey(), JSON.stringify(dataToSave));
-      console.log('💾 Mapper data guardado:', {
-        columnas: data.originalColumns.length,
-        mapeos: Object.keys(data.mappings).length,
-        key: getStorageKey()
+      console.log('💾 Guardado:', {
+        clave: getStorageKey(),
+        columnas: data.originalColumns?.length || 0,
+        mapeos: Object.keys(data.mappings || {}).length,
+        mappings: data.mappings
       });
     } catch (error) {
-      console.error('❌ Error guardando mapper data:', error);
+      console.error('❌ Error guardando:', error);
     }
   };
 
   // ============================================
-  // FUNCIÓN UNIFICADA: Cargar TODO desde sessionStorage
+  // ✅ FUNCIÓN SIMPLE: Cargar TODO
   // ============================================
   const loadMapperData = () => {
     if (!executionId) return null;
@@ -61,19 +59,21 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
         // Verificar que no haya expirado (30 minutos)
         const maxAge = 30 * 60 * 1000;
         if (Date.now() - data.timestamp < maxAge) {
-          console.log('📦 Mapper data restaurado:', {
+          console.log('📦 Restaurado desde', getStorageKey(), ':', {
             columnas: data.originalColumns?.length || 0,
             mapeos: Object.keys(data.mappings || {}).length,
-            key: getStorageKey()
+            mappings: data.mappings
           });
           return data;
         } else {
-          console.log('⏰ Mapper data expirado, se descarta');
+          console.log('⏰ Expirado, se descarta');
           sessionStorage.removeItem(getStorageKey());
         }
+      } else {
+        console.log('ℹ️ No hay datos en', getStorageKey());
       }
     } catch (error) {
-      console.error('❌ Error cargando mapper data:', error);
+      console.error('❌ Error cargando:', error);
     }
     return null;
   };
@@ -130,108 +130,86 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   const databaseFields = getDatabaseFieldsFromJSON();
 
   // ============================================
-  // EFECTO 1: Cargar datos al montar el componente (UNA VEZ)
-  // ✅ CORREGIDO: Carga desde sessionStorage SIEMPRE al montar
+  // ✅ EFECTO 1: Cargar datos AL MONTAR (una vez)
   // ============================================
   useEffect(() => {
-    if (!executionId || initialDataLoaded) return;
+    if (!executionId) return;
 
-    console.log('🔄 Iniciando carga INICIAL de mapper desde sessionStorage...');
+    console.log('🔄 Cargando mapper data...');
 
-    // Intentar cargar desde sessionStorage primero
+    // 1. Intentar cargar desde sessionStorage
     const saved = loadMapperData();
 
-    if (saved && (saved.originalColumns?.length > 0 || Object.keys(saved.mappings || {}).length > 0)) {
-      // Usar datos guardados (incluso si solo tiene mapeos)
+    if (saved) {
+      // Hay datos guardados → usarlos
       setMapperData(saved);
-      console.log('✅ Datos restaurados desde sessionStorage:', {
-        columnas: saved.originalColumns?.length || 0,
-        mapeos: Object.keys(saved.mappings || {}).length,
-        appliedToBackend: saved.appliedToBackend
-      });
+      console.log('✅ Datos restaurados');
+    } else if (isOpen) {
+      // No hay datos Y mapper está abierto → cargar desde backend
+      console.log('🌐 No hay datos, cargando desde backend...');
+      fetchMapeoFromBackend();
     } else {
-      console.log('ℹ️ No hay datos en sessionStorage');
+      console.log('ℹ️ No hay datos guardados, esperando...');
     }
-
-    // ✅ SIEMPRE marcar como cargado después del primer intento
-    setInitialDataLoaded(true);
-
-    // Verificar si el mapeo ya fue aplicado
-    const storageKey = fileType === 'sumas_saldos'
-      ? `mappingApplied_${executionId}-ss`
-      : `mappingApplied_${executionId}`;
-
-    const mappingAppliedFlag = sessionStorage.getItem(storageKey);
-    if (mappingAppliedFlag === 'true') {
-      console.log('🔒 Mapeo fue aplicado previamente');
-    }
-  }, [executionId, fileType]); // Solo al montar (sin isOpen)
+  }, [executionId, fileType]); // Solo al montar
 
   // ============================================
-  // EFECTO 1b: Cargar desde backend cuando se abre el mapper
-  // ✅ NUEVO: Si el mapper se abre Y no hay mapeos, cargar desde backend
+  // ✅ EFECTO 2: Cargar desde backend al abrir
   // ============================================
   useEffect(() => {
-    if (!executionId || !isOpen || !initialDataLoaded) return;
+    if (!executionId || !isOpen) return;
 
-    // Solo cargar desde backend si NO hay mapeos guardados
-    if (Object.keys(mapperData.mappings).length === 0) {
-      console.log('🌐 Mapper abierto sin mapeos, cargando desde backend...');
+    // Si abre el mapper Y no hay mapeos → cargar desde backend
+    if (Object.keys(mapperData.mappings).length === 0 && mapperData.originalColumns.length === 0) {
+      console.log('🌐 Mapper abierto sin datos, cargando desde backend...');
       fetchMapeoFromBackend();
     }
-  }, [isOpen, initialDataLoaded]); // Cuando se abre el mapper
+  }, [isOpen]);
 
   // ============================================
-  // EFECTO 2: Guardar automáticamente cuando cambien los datos
+  // ✅ EFECTO 3: Guardar automáticamente
   // ============================================
   useEffect(() => {
+    // Solo guardar si hay datos
     if (mapperData.originalColumns.length > 0 || Object.keys(mapperData.mappings).length > 0) {
       saveMapperData(mapperData);
     }
   }, [mapperData]);
 
   // ============================================
-  // EFECTO 3: Sincronizar columnas desde props
-  // ✅ CORREGIDO: Actualiza columnas cuando llegan desde FilePreview
+  // ✅ EFECTO 4: Sincronizar columnas del archivo ACTUAL
   // ============================================
   useEffect(() => {
-    if (!originalFields || originalFields.length === 0 || !initialDataLoaded) return;
+    if (!originalFields || originalFields.length === 0) return;
 
-    // Comparar si las columnas son diferentes (archivo nuevo vs guardado)
-    const currentColumns = mapperData.originalColumns;
-    const newColumns = originalFields;
+    const currentCols = mapperData.originalColumns;
+    const newCols = originalFields;
 
-    // Si no hay columnas guardadas O las columnas son diferentes → actualizar
-    const columnsChanged = currentColumns.length === 0 ||
-                          currentColumns.length !== newColumns.length ||
-                          !currentColumns.every((col, idx) => col === newColumns[idx]);
+    // Detectar si las columnas cambiaron
+    const changed = currentCols.length === 0 ||
+                   currentCols.length !== newCols.length ||
+                   !currentCols.every((col, i) => col === newCols[i]);
 
-    if (columnsChanged) {
-      console.log('🔄 Actualizando columnas desde archivo actual:', {
-        antes: currentColumns.length,
-        ahora: newColumns.length,
-        nuevasColumnas: newColumns
-      });
-
-      // Si las columnas cambiaron Y ya había columnas guardadas → es un archivo DIFERENTE
-      // Limpiar mapeos porque ya no son válidos para las nuevas columnas
-      if (currentColumns.length > 0) {
-        console.log('⚠️ Archivo diferente detectado - limpiando mapeos obsoletos');
+    if (changed) {
+      if (currentCols.length > 0) {
+        // Archivo DIFERENTE → limpiar mapeos
+        console.log('⚠️ Archivo diferente detectado');
         setMapperData({
-          originalColumns: newColumns,
+          originalColumns: newCols,
           mappings: {},
           confidences: {},
           appliedToBackend: false
         });
       } else {
-        // Primera carga de columnas → mantener mapeos si existen
+        // Primera carga → mantener mapeos si existen
+        console.log('✅ Columnas actualizadas');
         setMapperData(prev => ({
           ...prev,
-          originalColumns: newColumns
+          originalColumns: newCols
         }));
       }
     }
-  }, [originalFields, initialDataLoaded]);
+  }, [originalFields]);
 
   // ============================================
   // FUNCIÓN: Cargar mapeo desde el backend
@@ -292,6 +270,8 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
             }
           });
 
+          console.log('✅ Automapeo de Sumas y Saldos recibido:', mappings);
+
           // Actualizar estado unificado
           setMapperData(prev => ({
             ...prev,
@@ -299,7 +279,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
             confidences: {}
           }));
 
-          console.log('✅ Automapeo de Sumas y Saldos cargado:', Object.keys(mappings).length, 'mapeos');
+          console.log('✅ Estado actualizado con', Object.keys(mappings).length, 'mapeos');
         }
 
       } else {
@@ -321,6 +301,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
             }
           });
 
+          console.log('✅ Automapeo de Libro Diario recibido:', mappings);
+          console.log('✅ Confianzas:', confidences);
+
           // Actualizar estado unificado
           setMapperData(prev => ({
             ...prev,
@@ -328,7 +311,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
             confidences: confidences
           }));
 
-          console.log('✅ Automapeo de Libro Diario cargado:', Object.keys(mappings).length, 'mapeos');
+          console.log('✅ Estado actualizado con', Object.keys(mappings).length, 'mapeos');
         }
       }
       
@@ -553,16 +536,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     console.log('🧹 Mapeos limpiados');
   };
 
-  // ✅ CORREGIDO: SIEMPRE priorizar columnas del archivo ACTUAL (originalFields)
-  // Solo usar columnas guardadas (mapperData.originalColumns) como fallback
-  const columnsToShow = (originalFields && originalFields.length > 0)
-    ? originalFields  // ✅ PRIORIDAD: Columnas del archivo ACTUAL
-    : mapperData.originalColumns;  // Fallback: Columnas guardadas
-
-  if (!columnsToShow || columnsToShow.length === 0) {
-    if (Object.keys(mapperData.mappings).length > 0) {
-      console.log('⏳ Esperando columnas...');
-    }
+  // ✅ SIMPLE: Usar columnas de mapperData (que se sincronizan con originalFields)
+  if (!mapperData.originalColumns || mapperData.originalColumns.length === 0) {
+    console.log('⏳ Esperando columnas...');
     return null;
   }
 
@@ -716,7 +692,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                             className="block w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                           >
                             <option value="">-- Seleccionar --</option>
-                            {columnsToShow.map((originalField) => {
+                            {mapperData.originalColumns.map((originalField) => {
                               // Ocultar columnas ya mapeadas a otros campos, excepto la actual
                               const isAlreadyMapped = Object.entries(mapperData.mappings).some(
                                 ([col, field]) => col === originalField && field !== databaseField
