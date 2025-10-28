@@ -63,12 +63,11 @@ class DatabaseUploadService:
     async def upload_to_database(
         self,
         execution_id: str,
+        tenant_id: int,
         workspace_id: int,
         project_id: int,
-        entity_id: int,
         fiscal_year: int,
         period_ending_date: str,
-        dataset_version_id: int = 201,
         needs_mapping: bool = False
     ) -> Dict[str, Any]:
         """
@@ -82,12 +81,11 @@ class DatabaseUploadService:
 
         Args:
             execution_id: The execution ID
+            tenant_id: Tenant ID from execution
             workspace_id: Workspace ID from execution
             project_id: Project ID from execution
-            entity_id: Entity ID from execution
             fiscal_year: Fiscal year from execution
             period_ending_date: Period ending date from execution (YYYY-MM-DD)
-            dataset_version_id: Dataset version ID for SQL Server
             needs_mapping: Whether to use reporting_account mapping
 
         Returns:
@@ -95,7 +93,8 @@ class DatabaseUploadService:
         """
         try:
             logger.info(f"Starting database upload for execution {execution_id}")
-            logger.info(f"Dataset version ID: {dataset_version_id}")
+            logger.info(f"Tenant ID: {tenant_id}, Workspace ID: {workspace_id}, Project ID: {project_id}")
+            logger.info(f"Fiscal year: {fiscal_year}, Period ending: {period_ending_date}")
             logger.info(f"Needs mapping: {needs_mapping}")
             
             # Define blob relative paths (for SQL Server External Data Source)
@@ -116,12 +115,11 @@ class DatabaseUploadService:
             # Initialize AccountingDataLoader with execution parameters
             logger.info("Initializing AccountingDataLoader...")
             self.accounting_loader = AccountingDataLoader(
+                tenant_id=tenant_id,
                 workspace_id=workspace_id,
                 project_id=project_id,
-                entity_id=entity_id,
                 fiscal_year=fiscal_year,
-                period_ending_date=period_ending_date,
-                dataset_version_id=dataset_version_id
+                period_ending_date=period_ending_date
             )
             
             # Run the data loading process
@@ -148,7 +146,7 @@ class DatabaseUploadService:
                 return {
                     "success": True,
                     "message": "Data uploaded to database successfully",
-                    "dataset_version_id": dataset_version_id,
+                    "dataset_version_id": 201,
                     "totality_report_url": totality_report_url
                 }
             else:
