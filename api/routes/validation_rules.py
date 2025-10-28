@@ -12,7 +12,11 @@ import os
 from services.execution_service import get_execution_service
 from services.validation_rules_service import get_validation_rules_service
 from services.storage.azure_storage_service import get_azure_storage_service
+from services.results_storage_service import get_results_storage_service
 from utils.serialization import convert_numpy_types
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/smau-proto/api/import", tags=["validation_rules"])
 
@@ -38,6 +42,58 @@ class ValidationRulesStatusResponse(BaseModel):
     results: Optional[Dict[str, Any]] = None
     summary: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
+# ==========================================
+# Helper Functions
+# ==========================================
+
+def check_and_save_results_if_ready(execution_id: str):
+    """
+    Check if both validations are complete and successful, then save results automatically
+    """
+    execution_service = get_execution_service()
+    results_service = get_results_storage_service()
+
+    try:
+        # Get latest execution state
+        execution = execution_service.get_execution(execution_id)
+
+        # Check if both validations passed
+        all_passed, error_msg = results_service._check_all_validations_passed(execution)
+
+        if all_passed:
+            logger.info(f"🎉 Both validations passed for execution {execution_id}. Auto-saving results...")
+
+            # Get project_id from execution
+            project_id = execution.project_id if execution.project_id else "default"
+
+            # Save results automatically
+            saved_files = results_service.save_validated_results(execution, project_id)
+
+            # Update execution with saved files info
+            execution_service.update_execution(
+                execution_id,
+                status="completed",
+                step="results_saved",
+                stats={
+                    **(execution.stats or {}),
+                    "saved_results": {
+                        "timestamp": datetime.now().isoformat(),
+                        "project_id": project_id,
+                        "files": saved_files,
+                        "auto_saved": True
+                    }
+                }
+            )
+
+            logger.info(f"✅ Results auto-saved successfully for execution {execution_id}")
+            logger.info(f"   - Files saved: {list(saved_files.keys())}")
+        else:
+            logger.info(f"⏳ Waiting for other validation to complete. Reason: {error_msg}")
+
+    except Exception as e:
+        logger.warning(f"⚠️ Could not auto-save results for {execution_id}: {str(e)}")
+        # Don't fail the validation if auto-save fails
 
 # ==========================================
 # Background Task
@@ -122,9 +178,12 @@ async def run_validation_rules_background(execution_id: str, period: str):
             step="validation_rules_completed",
             validation_rules_results=validation_results_clean
         )
-        
-        print(f" Validation rules completed for execution {execution_id}")
-        
+
+        print(f"✅ Validation rules completed for execution {execution_id}")
+
+        # Check if both validations are complete and auto-save results if ready
+        check_and_save_results_if_ready(execution_id)
+
     except Exception as e:
         print(f"❌ Error in validation rules: {str(e)}")
         execution_service.update_execution(
