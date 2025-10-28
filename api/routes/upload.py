@@ -469,6 +469,8 @@ async def upload_file(
         # Solo intentar si:
         # 1. No es upload en background
         # 2. Tenemos todos los datos necesarios para el SP
+        sp_params_for_frontend = None  # Para enviar al frontend
+
         if (not file_path.startswith("uploading_to_azure://") and
             auth_user_id and tenant_id and workspace_id and project_id and
             period_beginning_date and period_ending_date and fiscal_year):
@@ -490,6 +492,61 @@ async def upload_file(
             )
 
             if sp_result:
+                # Obtener las ejecuciones para los metadatos
+                je_execution = execution_service.get_execution(parent_execution_id) if file_type == "Sys" else execution_service.get_execution(execution_id)
+                tb_execution = execution_service.get_execution(execution_id) if file_type == "Sys" else None
+
+                # Construir parámetros para el frontend (solo si el SP se ejecutó)
+                if je_execution and tb_execution:
+                    je_ext = getattr(je_execution, 'file_extension', '.csv').lower()
+                    tb_ext = getattr(tb_execution, 'file_extension', '.csv').lower()
+
+                    sp_params_for_frontend = {
+                        "usuario_y_contexto": {
+                            "auth_user_id": auth_user_id,
+                            "tenant_id": tenant_id,
+                            "workspace_id": workspace_id,
+                            "project_id": int(project_id)
+                        },
+                        "periodo": {
+                            "period_beginning_date": period_beginning_date,
+                            "period_ending_date": period_ending_date,
+                            "fiscal_year": fiscal_year
+                        },
+                        "storage": {
+                            "storage_relative_path": f"tenants/{tenant_id}/workspaces/{workspace_id}/"
+                        },
+                        "journal_entry": {
+                            "je_file_type_code": 'XLSX' if je_ext in ['.xls', '.xlsx'] else 'CSV',
+                            "je_file_data_structure_type_code": 'TABULAR',
+                            "je_original_file_name": getattr(je_execution, 'file_name', ''),
+                            "je_file_name": getattr(je_execution, 'file_name', '').lower().replace(' ', '_'),
+                            "je_file_extension": je_ext.lstrip('.'),
+                            "je_file_size_bytes": getattr(je_execution, 'file_size', 0) or 0,
+                            "je_file_size_mb": round((getattr(je_execution, 'file_size', 0) or 0) / (1024*1024), 2)
+                        },
+                        "trial_balance": {
+                            "tb_file_type_code": 'XLSX' if tb_ext in ['.xls', '.xlsx'] else 'CSV',
+                            "tb_file_data_structure_type_code": 'TABULAR',
+                            "tb_original_file_name": getattr(tb_execution, 'file_name', ''),
+                            "tb_file_name": getattr(tb_execution, 'file_name', '').lower().replace(' ', '_'),
+                            "tb_file_extension": tb_ext.lstrip('.'),
+                            "tb_file_size_bytes": getattr(tb_execution, 'file_size', 0) or 0,
+                            "tb_file_size_mb": round((getattr(tb_execution, 'file_size', 0) or 0) / (1024*1024), 2)
+                        },
+                        "opcionales": {
+                            "external_gid": None,
+                            "correlation_id": f"upload-{parent_execution_id if file_type == 'Sys' else execution_id}",
+                            "language_code": language_code
+                        },
+                        "resultado_sp": {
+                            "new_id": sp_result.get('new_id'),
+                            "has_error": sp_result.get('has_error'),
+                            "error_code": sp_result.get('error_code'),
+                            "error_message": sp_result.get('error_message')
+                        }
+                    }
+
                 if sp_result['has_error']:
                     logger.warning(f"⚠️  SP ejecutado pero devolvió error: {sp_result['error_message']}")
                     message += f" | SP ejecutado con error: {sp_result['error_code']}"
@@ -505,7 +562,8 @@ async def upload_file(
         return UploadResponse(
             execution_id=execution_id,
             file_name=original_filename,
-            message=message
+            message=message,
+            sp_params=sp_params_for_frontend
         )
         
     except Exception as e:
