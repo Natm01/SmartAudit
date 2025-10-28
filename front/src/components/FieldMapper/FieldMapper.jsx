@@ -6,84 +6,71 @@ import journalEntriesMapping from '../../config/journal_entries_table_mapping.js
 import trialBalanceMapping from '../../config/trial_balance_table_mapping.json';
 
 const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileType = 'libro_diario', executionId }) => {
-  const [fieldMappings, setFieldMappings] = useState({});
-  const [fieldConfidences, setFieldConfidences] = useState({});
-  const [originalBackendMappings, setOriginalBackendMappings] = useState({});
+  // Estado único unificado para el mapper
+  const [mapperData, setMapperData] = useState({
+    originalColumns: [],
+    mappings: {},
+    confidences: {},
+    appliedToBackend: false
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mapeoData, setMapeoData] = useState(null);
-  // Estados para controlar el botón de mapeo
-  const [mappingApplied, setMappingApplied] = useState(false);
-  const [initialMappingsSnapshot, setInitialMappingsSnapshot] = useState({});
-  // Estado local para las columnas originales (para persistir después de recargar)
-  const [localOriginalFields, setLocalOriginalFields] = useState([]);
 
-  // Claves para sessionStorage
-  const getStorageKey = (suffix) => `fieldmapper_${executionId}_${suffix}`;
+  // Clave única en sessionStorage
+  const getStorageKey = () => `mapper_data_${executionId}_${fileType}`;
 
-  // Guardar mapeo en sessionStorage
-  const saveMappingToStorage = (mappings, confidences = {}) => {
+  // ============================================
+  // FUNCIÓN UNIFICADA: Guardar TODO en sessionStorage
+  // ============================================
+  const saveMapperData = (data) => {
+    if (!executionId) return;
+
     try {
       const dataToSave = {
-        mappings: mappings,
-        confidences: confidences
+        ...data,
+        timestamp: Date.now(),
+        executionId,
+        fileType
       };
-      sessionStorage.setItem(getStorageKey('fieldMappings'), JSON.stringify(dataToSave));
-      sessionStorage.setItem(getStorageKey('timestamp'), Date.now().toString());
+      sessionStorage.setItem(getStorageKey(), JSON.stringify(dataToSave));
+      console.log('💾 Mapper data guardado:', {
+        columnas: data.originalColumns.length,
+        mapeos: Object.keys(data.mappings).length,
+        key: getStorageKey()
+      });
     } catch (error) {
-      console.warn('Could not save field mappings to sessionStorage:', error);
+      console.error('❌ Error guardando mapper data:', error);
     }
   };
 
-  // Guardar columnas originales en sessionStorage
-  const saveOriginalFieldsToStorage = (fields) => {
+  // ============================================
+  // FUNCIÓN UNIFICADA: Cargar TODO desde sessionStorage
+  // ============================================
+  const loadMapperData = () => {
+    if (!executionId) return null;
+
     try {
-      sessionStorage.setItem(getStorageKey('originalFields'), JSON.stringify(fields));
-      console.log('💾 Columnas originales guardadas en sessionStorage:', fields);
-    } catch (error) {
-      console.warn('Could not save original fields to sessionStorage:', error);
-    }
-  };
+      const saved = sessionStorage.getItem(getStorageKey());
+      if (saved) {
+        const data = JSON.parse(saved);
 
-  // Cargar columnas originales desde sessionStorage
-  const loadOriginalFieldsFromStorage = () => {
-    try {
-      const savedFields = sessionStorage.getItem(getStorageKey('originalFields'));
-      if (savedFields) {
-        const fields = JSON.parse(savedFields);
-        console.log('📦 Columnas originales restauradas desde sessionStorage:', fields);
-        return fields;
-      }
-    } catch (error) {
-      console.warn('Could not load original fields from sessionStorage:', error);
-    }
-    return null;
-  };
-
-  // Cargar mapeo desde sessionStorage
-  const loadMappingFromStorage = () => {
-    try {
-      const savedMappings = sessionStorage.getItem(getStorageKey('fieldMappings'));
-      const timestamp = sessionStorage.getItem(getStorageKey('timestamp'));
-
-      if (savedMappings && timestamp) {
-        const timeDiff = Date.now() - parseInt(timestamp);
-        const maxAge = 30 * 60 * 1000; // 30 minutos
-
-        if (timeDiff < maxAge) {
-          const parsedData = JSON.parse(savedMappings);
-          console.log('📦 Restaurando mapeo desde sessionStorage:', parsedData);
-          console.log('⚠️ IMPORTANTE: Mapeos cargados pero NO marcar como aplicados (esperando acción del usuario)');
-          // Soportar formato antiguo y nuevo
-          if (parsedData.mappings) {
-            return parsedData; // Formato nuevo con mappings y confidences
-          } else {
-            return { mappings: parsedData, confidences: {} }; // Formato antiguo
-          }
+        // Verificar que no haya expirado (30 minutos)
+        const maxAge = 30 * 60 * 1000;
+        if (Date.now() - data.timestamp < maxAge) {
+          console.log('📦 Mapper data restaurado:', {
+            columnas: data.originalColumns?.length || 0,
+            mapeos: Object.keys(data.mappings || {}).length,
+            key: getStorageKey()
+          });
+          return data;
+        } else {
+          console.log('⏰ Mapper data expirado, se descarta');
+          sessionStorage.removeItem(getStorageKey());
         }
       }
     } catch (error) {
-      console.warn('Could not load field mappings from sessionStorage:', error);
+      console.error('❌ Error cargando mapper data:', error);
     }
     return null;
   };
@@ -139,208 +126,159 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
 
   const databaseFields = getDatabaseFieldsFromJSON();
 
-  // Efecto para manejar originalFields: guardar cuando llegan y restaurar si no hay
+  // ============================================
+  // EFECTO 1: Cargar datos al montar el componente
+  // ============================================
   useEffect(() => {
-    if (originalFields && originalFields.length > 0) {
-      // Si llegan originalFields por prop, guardarlos y usarlos
-      setLocalOriginalFields(originalFields);
-      saveOriginalFieldsToStorage(originalFields);
-      console.log('✅ Columnas originales recibidas y guardadas:', originalFields.length);
+    if (!executionId || !isOpen) return;
+
+    console.log('🔄 Iniciando carga de mapper...');
+
+    // Intentar cargar desde sessionStorage primero
+    const saved = loadMapperData();
+
+    if (saved && saved.originalColumns && saved.originalColumns.length > 0) {
+      // Usar datos guardados
+      setMapperData(saved);
+      console.log('✅ Datos restaurados desde sessionStorage');
+    } else {
+      // No hay datos guardados, cargar desde backend
+      console.log('🌐 No hay datos guardados, cargando desde backend...');
+      fetchMapeoFromBackend();
     }
-  }, [originalFields]);
 
-  // Efecto separado para restaurar columnas al montar (solo una vez)
-  useEffect(() => {
-    if (executionId && localOriginalFields.length === 0) {
-      // Intentar cargar columnas desde sessionStorage
-      const savedFields = loadOriginalFieldsFromStorage();
-      if (savedFields && savedFields.length > 0) {
-        setLocalOriginalFields(savedFields);
-        console.log('🔄 Columnas originales restauradas desde sessionStorage:', savedFields.length);
-      } else {
-        console.log('⚠️ No se encontraron columnas guardadas en sessionStorage');
-      }
-    }
-  }, [executionId]); // Solo depende de executionId, se ejecuta al montar
-
-  useEffect(() => {
-    // Intentar cargar mapeo incluso si no hay columnas todavía
-    // porque el mapeo puede estar guardado en sessionStorage
-    if (isOpen && executionId) {
-      loadMapeoData();
-    }
-  }, [isOpen, executionId, localOriginalFields]);
-
-  useEffect(() => {
-    if (Object.keys(fieldMappings).length > 0) {
-      saveMappingToStorage(fieldMappings, fieldConfidences);
-    }
-  }, [fieldMappings, fieldConfidences]);
-
-  // Verificar si el mapeo ya fue aplicado previamente (al cargar el componente)
-  useEffect(() => {
-    if (!executionId) return;
-
+    // Verificar si el mapeo ya fue aplicado
     const storageKey = fileType === 'sumas_saldos'
       ? `mappingApplied_${executionId}-ss`
       : `mappingApplied_${executionId}`;
 
     const mappingAppliedFlag = sessionStorage.getItem(storageKey);
     if (mappingAppliedFlag === 'true') {
-      setMappingApplied(true);
-      console.log('🔒 Mapeo fue aplicado previamente, botón deshabilitado');
+      console.log('🔒 Mapeo fue aplicado previamente');
     }
-  }, [executionId, fileType]);
+  }, [executionId, fileType, isOpen]); // Solo al montar o cambiar isOpen
 
-  // Función para cargar los datos del mapeo
-  const loadMapeoData = async () => {
+  // ============================================
+  // EFECTO 2: Guardar automáticamente cuando cambien los datos
+  // ============================================
+  useEffect(() => {
+    if (mapperData.originalColumns.length > 0 || Object.keys(mapperData.mappings).length > 0) {
+      saveMapperData(mapperData);
+    }
+  }, [mapperData]);
+
+  // ============================================
+  // EFECTO 3: Sincronizar columnas desde props
+  // ============================================
+  useEffect(() => {
+    if (originalFields && originalFields.length > 0) {
+      // Si llegan columnas nuevas, actualizar SOLO si no las tenemos
+      if (mapperData.originalColumns.length === 0) {
+        console.log('✅ Columnas originales recibidas desde prop:', originalFields.length);
+        setMapperData(prev => ({
+          ...prev,
+          originalColumns: originalFields
+        }));
+      }
+    }
+  }, [originalFields]);
+
+  // ============================================
+  // FUNCIÓN: Cargar mapeo desde el backend
+  // ============================================
+  const fetchMapeoFromBackend = async () => {
     if (!executionId) return;
-    
+
     setLoading(true);
     try {
-      const savedData = loadMappingFromStorage();
-      if (savedData && savedData.mappings && Object.keys(savedData.mappings).length > 0) {
-        console.log('📦 Cargando mapeo desde sessionStorage');
-        setFieldMappings(savedData.mappings);
-        setFieldConfidences(savedData.confidences || {});
-
-        // También actualizar originalBackendMappings para el botón "Auto mapeo"
-        if (fileType === 'libro_diario') {
-          setOriginalBackendMappings({
-            mappings: savedData.mappings,
-            confidences: savedData.confidences || {}
-          });
-        } else {
-          setOriginalBackendMappings(savedData.mappings);
-        }
-        console.log('💾 originalBackendMappings actualizado desde sessionStorage');
-
-        // ❌ NO guardar flag de mapeo aplicado aquí
-        // El flag solo debe guardarse cuando el usuario hace click en "Aplicar Mapeo"
-        console.log('ℹ️ Mapeos cargados en la tabla, pero flag mappingApplied NO modificado (esperando acción del usuario)');
-
-        setLoading(false);
-        return;
-      }
-
-      console.log(`🔍 Obteniendo mapeo desde el backend (${fileType})...`);
+      console.log(`🌐 Obteniendo mapeo desde backend (${fileType})...`);
 
       if (fileType === 'sumas_saldos') {
         let statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
 
         // Si no hay mapeo o está vacío, iniciar el proceso automático
         if (!statusResult.success || !statusResult.data.mapping || Object.keys(statusResult.data.mapping).length === 0) {
-          console.log('🚀 No se encontró mapeo de Sumas y Saldos, iniciando proceso automático...');
+          console.log('🚀 Iniciando proceso automático de mapeo...');
 
           const startMapeoResult = await importService.startSumasSaldosMapeo(executionId);
 
           if (startMapeoResult.success) {
-            console.log('✅ Proceso de mapeo iniciado, esperando completación...');
-
-            // Polling para esperar a que el mapeo se complete
+            // Polling para esperar completación
             let attempts = 0;
-            const maxAttempts = 30; // 30 intentos * 2 segundos = 1 minuto máximo
+            const maxAttempts = 30;
             let mapeoCompleted = false;
 
             while (!mapeoCompleted && attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Esperar 2 segundos
-
+              await new Promise(resolve => setTimeout(resolve, 2000));
               statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
               attempts++;
 
               if (statusResult.success && statusResult.data.status) {
                 const status = statusResult.data.status.toLowerCase();
-                console.log(`🔄 Intento ${attempts}/${maxAttempts} - Estado: ${status}`);
+                console.log(`🔄 Estado: ${status} (${attempts}/${maxAttempts})`);
 
                 if (status === 'completed') {
                   mapeoCompleted = true;
-                  console.log('✅ Mapeo de Sumas y Saldos completado');
                   break;
                 } else if (status === 'failed' || status === 'error') {
-                  console.error('❌ Mapeo de Sumas y Saldos falló:', statusResult.data.error);
+                  console.error('❌ Mapeo falló');
                   break;
                 }
               }
             }
-
-            if (!mapeoCompleted) {
-              console.warn('⚠️ Timeout esperando mapeo de Sumas y Saldos');
-            }
-          } else {
-            console.error('❌ Error al iniciar mapeo de Sumas y Saldos:', startMapeoResult.error);
           }
         }
 
-        // Intentar cargar el mapeo nuevamente después del proceso
+        // Cargar el mapeo
         statusResult = await importService.getSumasSaldosMapeoStatus(executionId);
 
         if (statusResult.success && statusResult.data.mapping) {
-          console.log('📋 Mapeo de Sumas y Saldos encontrado:', statusResult.data.mapping);
-
           const backendMapping = statusResult.data.mapping || {};
-          const frontendMappings = {};
+          const mappings = {};
 
           Object.entries(backendMapping).forEach(([bdField, excelColumn]) => {
             if (excelColumn) {
-              frontendMappings[excelColumn] = bdField;
+              mappings[excelColumn] = bdField;
             }
           });
 
-          setFieldMappings(frontendMappings);
-          setOriginalBackendMappings(frontendMappings);
+          // Actualizar estado unificado
+          setMapperData(prev => ({
+            ...prev,
+            mappings: mappings,
+            confidences: {}
+          }));
 
-          // IMPORTANTE: Guardar el automapeo en sessionStorage para persistir al recargar
-          saveMappingToStorage(frontendMappings, {});
-          console.log('💾 Automapeo de Sumas y Saldos guardado en sessionStorage');
-
-          // ❌ NO guardar flag de mapeo aplicado al cargar automapeo del backend
-          // Los mapeos del backend son AUTOMAPEOS, no mapeos aplicados manualmente
-          console.log('ℹ️ Automapeo de Sumas y Saldos cargado en la tabla, pero flag mappingApplied NO modificado');
-          console.log('   El usuario debe hacer click en "Aplicar Mapeo" para activar el preview azul');
-        } else {
-          console.log('⚠️ No se pudo cargar el mapeo de Sumas y Saldos');
+          console.log('✅ Automapeo de Sumas y Saldos cargado:', Object.keys(mappings).length, 'mapeos');
         }
 
       } else {
+        // Libro Diario
         const fieldsResult = await importService.getFieldsMapping(executionId);
 
         if (fieldsResult.success) {
-          console.log('Respuesta del backend:', fieldsResult.data);
-          setMapeoData(fieldsResult.data);
-
           const backendMappings = fieldsResult.data.mapped_fields || {};
-          const frontendMappings = {};
+          const mappings = {};
           const confidences = {};
 
           Object.entries(backendMappings).forEach(([standardField, mapping]) => {
             if (mapping.mapped_column) {
-              frontendMappings[mapping.mapped_column] = standardField;
+              mappings[mapping.mapped_column] = standardField;
 
               if (mapping.confidence !== undefined) {
                 confidences[mapping.mapped_column] = mapping.confidence;
               }
-
-              console.log(`Mapeando: "${mapping.mapped_column}" -> "${standardField}"${
-                mapping.confidence !== undefined ? ` (confidence: ${mapping.confidence})` : ''
-              }`);
             }
           });
 
-          console.log('📋 Mapeo final del frontend:', frontendMappings);
-          console.log('🎯 Confidences capturadas:', confidences);
+          // Actualizar estado unificado
+          setMapperData(prev => ({
+            ...prev,
+            mappings: mappings,
+            confidences: confidences
+          }));
 
-          setFieldMappings(frontendMappings);
-          setFieldConfidences(confidences);
-          setOriginalBackendMappings({ mappings: frontendMappings, confidences });
-
-          // IMPORTANTE: Guardar el automapeo en sessionStorage para persistir al recargar
-          saveMappingToStorage(frontendMappings, confidences);
-          console.log('💾 Automapeo del Libro Diario guardado en sessionStorage');
-
-          // ❌ NO guardar flag de mapeo aplicado al cargar automapeo del backend
-          // Los mapeos del backend son AUTOMAPEOS, no mapeos aplicados manualmente
-          console.log('ℹ️ Automapeo del Libro Diario cargado en la tabla, pero flag mappingApplied NO modificado');
-          console.log('   El usuario debe hacer click en "Aplicar Mapeo" para activar el preview azul');
+          console.log('✅ Automapeo de Libro Diario cargado:', Object.keys(mappings).length, 'mapeos');
         }
       }
       
@@ -351,49 +289,49 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     }
   };
 
-  //  FUNCIÓN CORREGIDA: Permite re-mapear columnas
+  // ============================================
+  // FUNCIÓN: Cambiar un mapeo de columna
+  // ============================================
   const handleMappingChange = (originalField, targetField) => {
-    // PASO 1: Crear copia del estado actual
-    const newMappings = { ...fieldMappings };
+    setMapperData(prev => {
+      const newMappings = { ...prev.mappings };
 
-    // PASO 2: Si el targetField ya estaba mapeado a otro originalField,
-    // eliminamos ese mapeo anterior
-    if (targetField) {
-      // Buscar si targetField ya estaba asignado a otra columna
-      const previousMapping = Object.entries(fieldMappings).find(
-        ([key, value]) => value === targetField && key !== originalField
-      );
+      // Si el targetField ya estaba mapeado a otra columna, eliminarlo
+      if (targetField) {
+        const previousMapping = Object.entries(newMappings).find(
+          ([key, value]) => value === targetField && key !== originalField
+        );
 
-      // Si existía un mapeo anterior diferente, lo eliminamos
-      if (previousMapping) {
-        delete newMappings[previousMapping[0]];
-        console.log(`🔄 Removiendo mapeo anterior: ${previousMapping[0]} -> ${targetField}`);
+        if (previousMapping) {
+          delete newMappings[previousMapping[0]];
+          console.log(`🔄 Removiendo mapeo anterior: ${previousMapping[0]} -> ${targetField}`);
+        }
       }
-    }
 
-    // PASO 3: Aplicar el nuevo mapeo (o eliminar si targetField está vacío)
-    if (targetField) {
-      newMappings[originalField] = targetField;
-      console.log(` Nuevo mapeo: ${originalField} -> ${targetField}`);
-    } else {
-      // Si targetField está vacío, eliminar el mapeo
-      delete newMappings[originalField];
-      console.log(`🗑️ Mapeo eliminado: ${originalField}`);
-    }
+      // Aplicar el nuevo mapeo (o eliminar si está vacío)
+      if (targetField) {
+        newMappings[originalField] = targetField;
+        console.log(`✅ Nuevo mapeo: ${originalField} -> ${targetField}`);
+      } else {
+        delete newMappings[originalField];
+        console.log(`🗑️ Mapeo eliminado: ${originalField}`);
+      }
 
-    setFieldMappings(newMappings);
-
-    // PASO 4: Si el mapeo fue aplicado previamente, habilitar el botón nuevamente
-    if (mappingApplied) {
-      console.log('🔓 Mapeo modificado después de aplicar, habilitando botón de mapeo');
-      setMappingApplied(false);
-    }
+      return {
+        ...prev,
+        mappings: newMappings,
+        appliedToBackend: false // Resetear porque cambió el mapeo
+      };
+    });
   };
 
+  // ============================================
+  // FUNCIÓN: Aplicar mapeos al backend
+  // ============================================
   const handleApplyMappings = async () => {
     if (!executionId) {
       if (onMappingChange) {
-        onMappingChange(fieldMappings);
+        onMappingChange(mapperData.mappings);
       }
       return;
     }
@@ -402,9 +340,8 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
     try {
       const mappings = [];
 
-      // Cuando el usuario hace click en "Aplicar Mapeo", es una acción EXPLÍCITA
-      // Siempre usar force_override=true porque el usuario está confirmando el mapeo
-      Object.entries(fieldMappings).forEach(([sourceColumn, standardField]) => {
+      // Preparar mapeos para enviar al backend
+      Object.entries(mapperData.mappings).forEach(([sourceColumn, standardField]) => {
         if (standardField) {
           const mappingObj = {
             column_name: sourceColumn,
@@ -412,8 +349,8 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
             force_override: true  // SIEMPRE true cuando el usuario aplica manualmente
           };
 
-          if (fileType === 'libro_diario' && fieldConfidences[sourceColumn] !== undefined) {
-            mappingObj.confidence = fieldConfidences[sourceColumn];
+          if (fileType === 'libro_diario' && mapperData.confidences[sourceColumn] !== undefined) {
+            mappingObj.confidence = mapperData.confidences[sourceColumn];
           } else if (fileType === 'libro_diario') {
             mappingObj.confidence = 1.0; // Mapeo manual = 100% confianza
           }
@@ -423,15 +360,12 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       });
 
       if (mappings.length === 0) {
-        console.log('No hay mapeos para enviar al backend');
-        if (onMappingChange) {
-          onMappingChange(fieldMappings);
-        }
+        console.log('⚠️ No hay mapeos para enviar');
         setLoading(false);
         return;
       }
 
-      console.log(`📤 Enviando ${mappings.length} mapeos al backend con force_override=true`);
+      console.log(`📤 Enviando ${mappings.length} mapeos al backend`);
 
       let result;
 
@@ -440,40 +374,25 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       } else {
         result = await importService.applyManualMapping(executionId, mappings);
       }
-      
+
       if (result.success) {
-        console.log(' Mapeo aplicado exitosamente');
+        console.log('✅ Mapeo aplicado exitosamente');
 
-        // Marcar el mapeo como explícitamente aplicado en sessionStorage
-        try {
-          // CORREGIDO: Guardar con sufijo correcto según tipo de archivo
-          const storageKey = fileType === 'sumas_saldos'
-            ? `mappingApplied_${executionId}-ss`  // Con sufijo -ss para Sumas y Saldos
-            : `mappingApplied_${executionId}`;    // Sin sufijo para Libro Diario
+        // Marcar como aplicado
+        const storageKey = fileType === 'sumas_saldos'
+          ? `mappingApplied_${executionId}-ss`
+          : `mappingApplied_${executionId}`;
 
-          sessionStorage.setItem(storageKey, 'true');
-          console.log(`✅ Guardado flag de mapeo aplicado: ${storageKey}`);
-        } catch (error) {
-          console.warn('Could not save mapping applied flag:', error);
-        }
+        sessionStorage.setItem(storageKey, 'true');
 
-        // Actualizar el backup con los nuevos mapeos aplicados
-        if (fileType === 'libro_diario') {
-          setOriginalBackendMappings({
-            mappings: fieldMappings,
-            confidences: fieldConfidences
-          });
-        } else {
-          setOriginalBackendMappings(fieldMappings);
-        }
-
-        // Deshabilitar el botón de mapeo después de aplicar exitosamente
-        setMappingApplied(true);
-        setInitialMappingsSnapshot({ ...fieldMappings });
-        console.log('🔒 Botón de mapeo deshabilitado después de aplicar exitosamente');
+        // Actualizar estado
+        setMapperData(prev => ({
+          ...prev,
+          appliedToBackend: true
+        }));
 
         if (onMappingChange) {
-          onMappingChange(fieldMappings);
+          onMappingChange(mapperData.mappings);
         }
       } else {
         console.error('❌ Error al aplicar mapeo:', result.error);
@@ -481,7 +400,6 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       }
     } catch (error) {
       console.error('❌ Error applying mappings:', error);
-      
       const errorMessage = error?.response?.data?.detail || error?.message || 'Error desconocido';
       alert('Error al aplicar el mapeo:\n\n' + errorMessage);
     } finally {
@@ -490,15 +408,15 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   };
 
   const getMappedCount = () => {
-    return Object.values(fieldMappings).filter(v => v).length;
+    return Object.values(mapperData.mappings).filter(v => v).length;
   };
 
   const getRequiredMappedCount = () => {
     const requiredFields = Object.entries(databaseFields)
       .filter(([_, info]) => info.required && (!info.fileTypes || info.fileTypes.includes(fileType)));
-    
-    const mappedRequired = requiredFields.filter(([field]) => 
-      Object.values(fieldMappings).includes(field)
+
+    const mappedRequired = requiredFields.filter(([field]) =>
+      Object.values(mapperData.mappings).includes(field)
     ).length;
 
     return {
@@ -508,7 +426,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   };
 
   const isFieldMapped = (databaseField) => {
-    return Object.values(fieldMappings).includes(databaseField);
+    return Object.values(mapperData.mappings).includes(databaseField);
   };
 
   const getFilteredDatabaseFields = () => {
@@ -574,46 +492,25 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
       : 'Mapeo de Campos - Sumas y Saldos';
   };
 
-  const handleRestoreBackendMapping = () => {
-    if (!originalBackendMappings || Object.keys(originalBackendMappings).length === 0) {
-      alert('No hay mapeo automático del backend disponible para restaurar');
-      return;
-    }
-
-    if (fileType === 'libro_diario' && originalBackendMappings.mappings) {
-      setFieldMappings(originalBackendMappings.mappings);
-      setFieldConfidences(originalBackendMappings.confidences || {});
-
-      const withConfidence = Object.keys(originalBackendMappings.confidences || {}).length;
-      console.log(
-        ` Restaurados ${Object.keys(originalBackendMappings.mappings).length} mapeos del backend` +
-        (withConfidence > 0 ? ` (${withConfidence} con nivel de confianza)` : '')
-      );
-    } else {
-      setFieldMappings(originalBackendMappings);
-      console.log(` Restaurados ${Object.keys(originalBackendMappings).length} mapeos del backend`);
-    }
-
-    // Habilitar el botón de mapeo al restaurar, porque se cambió el estado
-    setMappingApplied(false);
-    console.log('🔓 Botón de mapeo habilitado al restaurar mapeo automático');
+  //  FUNCIÓN: Limpiar mapeos (restaurar desde backend si es necesario)
+  const handleClearMappings = () => {
+    setMapperData(prev => ({
+      ...prev,
+      mappings: {},
+      confidences: {},
+      appliedToBackend: false
+    }));
+    console.log('🧹 Mapeos limpiados');
   };
 
-  // Usar localOriginalFields en lugar de originalFields
-  const fieldsToUse = localOriginalFields.length > 0 ? localOriginalFields : originalFields || [];
+  // Decidir qué columnas mostrar
+  const columnsToShow = mapperData.originalColumns.length > 0
+    ? mapperData.originalColumns
+    : (originalFields || []);
 
-  // Log para debugging
-  console.log('🔍 FieldMapper render:', {
-    localOriginalFieldsCount: localOriginalFields.length,
-    originalFieldsCount: originalFields?.length || 0,
-    fieldsToUseCount: fieldsToUse.length,
-    fieldMappingsCount: Object.keys(fieldMappings).length
-  });
-
-  if (!fieldsToUse || fieldsToUse.length === 0) {
-    // Si tenemos mapeos pero no columnas, mostrar un mensaje temporal
-    if (Object.keys(fieldMappings).length > 0) {
-      console.log('⏳ Mapeos disponibles pero esperando columnas...');
+  if (!columnsToShow || columnsToShow.length === 0) {
+    if (Object.keys(mapperData.mappings).length > 0) {
+      console.log('⏳ Esperando columnas...');
     }
     return null;
   }
@@ -668,11 +565,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                 e.stopPropagation();
                 handleApplyMappings();
               }}
-              disabled={loading || mappingApplied}
+              disabled={loading || mapperData.appliedToBackend}
               className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title={mappingApplied ? 'Mapeo ya aplicado. Modifica una columna para volver a mapear.' : 'Aplicar el mapeo al archivo'}
+              title={mapperData.appliedToBackend ? 'Mapeo ya aplicado. Modifica una columna para volver a mapear.' : 'Aplicar el mapeo al archivo'}
             >
-              {loading ? 'Aplicando...' : mappingApplied ? 'Mapeo Aplicado ✓' : 'Aplicar Mapeo'}
+              {loading ? 'Aplicando...' : mapperData.appliedToBackend ? 'Mapeo Aplicado ✓' : 'Aplicar Mapeo'}
             </button>
             
             <svg 
@@ -736,7 +633,7 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredDatabaseFields.map(([databaseField, fieldInfo]) => {
-                  const mappedOriginalField = Object.entries(fieldMappings)
+                  const mappedOriginalField = Object.entries(mapperData.mappings)
                     .find(([_, mappedField]) => mappedField === databaseField)?.[0] || '';
                   
                   const isMapped = isFieldMapped(databaseField);
@@ -768,9 +665,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                             className="block w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                           >
                             <option value="">-- Seleccionar --</option>
-                            {fieldsToUse.map((originalField) => {
+                            {columnsToShow.map((originalField) => {
                               // Ocultar columnas ya mapeadas a otros campos, excepto la actual
-                              const isAlreadyMapped = Object.entries(fieldMappings).some(
+                              const isAlreadyMapped = Object.entries(mapperData.mappings).some(
                                 ([col, field]) => col === originalField && field !== databaseField
                               );
                               if (isAlreadyMapped && originalField !== mappedOriginalField) {
@@ -801,9 +698,9 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
                       </td>
                       {fileType === 'libro_diario' && (
                         <td className="px-3 py-1.5 whitespace-nowrap">
-                          {mappedOriginalField && fieldConfidences[mappedOriginalField] !== undefined && (
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getConfidenceColor(fieldConfidences[mappedOriginalField])}`}>
-                              {Math.round(fieldConfidences[mappedOriginalField] * 100)}%
+                          {mappedOriginalField && mapperData.confidences[mappedOriginalField] !== undefined && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getConfidenceColor(mapperData.confidences[mappedOriginalField])}`}>
+                              {Math.round(mapperData.confidences[mappedOriginalField] * 100)}%
                             </span>
                           )}
                         </td>
@@ -832,26 +729,11 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
             <div className="mt-3 flex justify-end">
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => {
-                    setFieldMappings({});
-                    setFieldConfidences({});
-                    setMappingApplied(false);
-                    console.log('🧹 Mapeos limpiados (el backup del backend se mantiene)');
-                    console.log('🔓 Botón de mapeo habilitado al limpiar');
-                  }}
+                  onClick={handleClearMappings}
                   disabled={loading}
                   className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
                 >
                   Limpiar
-                </button>
-                
-                <button
-                  onClick={handleRestoreBackendMapping}
-                  disabled={loading || !originalBackendMappings || Object.keys(originalBackendMappings).length === 0}
-                  className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-                  title={!originalBackendMappings || Object.keys(originalBackendMappings).length === 0 ? 'No hay mapeo del backend disponible' : 'Restaurar mapeo automático del backend'}
-                >
-                  Auto mapeo
                 </button>
               </div>
             </div>
