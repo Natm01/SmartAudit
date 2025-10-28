@@ -177,17 +177,22 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
             intervalMs: 2000,
             timeoutMs: 300000, // 5 minutos
             onProgress: (progressUpdate) => {
-              console.log('Sumas y Saldos progress update:', progressUpdate);
-              
+              console.log('📊 [FRONTEND] Sumas y Saldos progress update:', progressUpdate);
+              console.log('📊 [FRONTEND] Overall status:', progressUpdate.status);
+              console.log('📊 [FRONTEND] Phases:', progressUpdate.phases);
+
               if (progressUpdate.progress) {
                 setProgressData(progressUpdate.progress);
+                console.log('📊 [FRONTEND] Progress data updated:', progressUpdate.progress);
               }
 
               // Actualizar estado de la fase 1
               if (progressUpdate.phases && progressUpdate.phases.length > 0) {
+                console.log('📊 [FRONTEND] Actualizando fases...');
                 const updatedPhases = phases.map(phase => {
                   const phaseUpdate = progressUpdate.phases.find(p => p.phase === phase.id);
                   if (phaseUpdate) {
+                    console.log(`📊 [FRONTEND] Fase ${phase.id}: ${phase.status} -> ${phaseUpdate.status}`);
                     return {
                       ...phase,
                       status: phaseUpdate.status
@@ -196,6 +201,7 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
                   return phase;
                 });
                 setPhases(updatedPhases);
+                console.log('📊 [FRONTEND] Fases actualizadas:', updatedPhases);
               }
             }
           }

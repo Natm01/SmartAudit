@@ -46,15 +46,18 @@ async def run_sumas_saldos_validation_background(execution_id: str):
     execution_service = get_execution_service()
     validation_service = get_sumas_saldos_validation_service()
     azure_service = get_azure_storage_service()
-    
+
     try:
+        print(f"🔍 [BACKGROUND TASK INICIADO] Validación de Sumas y Saldos para: {execution_id}")
+
         # Update status to processing
         execution_service.update_execution(
             execution_id,
             status="processing",
             step="sumas_saldos_validation"
         )
-        
+
+        print(f"✅ [BACKGROUND TASK] Estado actualizado a processing con step=sumas_saldos_validation")
         print(f"🔍 Iniciando validación de Sumas y Saldos para: {execution_id}")
         
         # Get execution to find the processed file
@@ -170,29 +173,35 @@ async def start_sumas_saldos_validation(
 ):
     """
     Inicia proceso de validación para Sumas y Saldos.
-    
+
     Solo ejecuta Fase 1 (Validaciones de Formato):
     - Valida gl_account_number
     - Valida period_beginning_balance (si existe)
     - Valida period_ending_balance
     - Valida period_activity_debit (si existe)
     - Valida period_activity_credit (si existe)
-    
+
     IMPORTANTE: Este endpoint espera el archivo procesado guardado en
     execution.sumas_saldos_csv_path o busca {execution_id}_mapeo_Sys.csv
     """
     execution_service = get_execution_service()
-    
+
     try:
+        print(f"🚀 [POST] Iniciando validación para execution_id: {execution_id}")
+
         # Verify execution exists
         execution = execution_service.get_execution(execution_id)
-        
+
+        print(f"✅ [POST] Execution encontrado, agregando background task")
+
         # Start validation in background
         background_tasks.add_task(
             run_sumas_saldos_validation_background,
             execution_id
         )
-        
+
+        print(f"✅ [POST] Background task agregado, retornando respuesta")
+
         return SumasSaldosValidationResponse(
             execution_id=execution_id,
             message="Sumas y Saldos validation started",
@@ -207,26 +216,30 @@ async def start_sumas_saldos_validation(
             detail=f"Error starting sumas y saldos validation: {str(e)}"
         )
 
-@router.get("/validate-sumas-saldos/{execution_id}/status", 
+@router.get("/validate-sumas-saldos/{execution_id}/status",
             response_model=SumasSaldosValidationStatusResponse)
 async def get_sumas_saldos_validation_status(execution_id: str):
     """
     Obtiene el estado y resultados de la validación de Sumas y Saldos.
-    
+
     Retorna el estado actual y resultados completos si está completado.
     """
     execution_service = get_execution_service()
-    
+
     try:
         execution = execution_service.get_execution(execution_id)
-        
+
+        print(f"📊 [STATUS] execution.step: {execution.step}, execution.status: {execution.status}")
+
         # Get validation results if available
         validation_results = (
-            execution.sumas_saldos_validation_results 
-            if hasattr(execution, 'sumas_saldos_validation_results') 
+            execution.sumas_saldos_validation_results
+            if hasattr(execution, 'sumas_saldos_validation_results')
             else None
         )
-        
+
+        print(f"📊 [STATUS] validation_results present: {validation_results is not None}")
+
         # Determine status basándose en el step específico de validación
         current_status = "not_started"
 
@@ -239,6 +252,8 @@ async def get_sumas_saldos_validation_status(execution_id: str):
         elif validation_results:
             # Si hay resultados pero el step no está actualizado
             current_status = "completed"
+
+        print(f"📊 [STATUS] current_status: {current_status}")
         
         # Get summary if results available
         summary = None
@@ -271,17 +286,26 @@ async def get_sumas_saldos_validation_summary(execution_id: str):
     try:
         execution = execution_service.get_execution(execution_id)
 
+        print(f"📊 [SUMMARY] execution.step: {execution.step}, execution.status: {execution.status}")
+
         validation_results = (
             execution.sumas_saldos_validation_results
             if hasattr(execution, 'sumas_saldos_validation_results')
             else None
         )
 
+        print(f"📊 [SUMMARY] validation_results present: {validation_results is not None}")
+
         # Verificar si la validación está en progreso
+        # La validación está en progreso si:
+        # 1. El step es exactamente "sumas_saldos_validation" (durante la ejecución)
+        # 2. El status es "processing" y no tenemos resultados aún
         is_validating = (
             execution.step == "sumas_saldos_validation" or
-            execution.status == "processing"
+            (execution.status == "processing" and not validation_results)
         )
+
+        print(f"📊 [SUMMARY] is_validating: {is_validating}")
 
         if not validation_results:
             # Si está validando, mostrar status "validating", sino "pending"
