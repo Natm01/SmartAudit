@@ -116,15 +116,32 @@ class ImportService {
       // Si el backend devuelve sp_params, mostrarlos en consola
       if (response?.data?.sp_params) {
         console.log('================================================================================');
-        console.log('📋 PARÁMETROS DEL SP sp_insert_audit_test_exec_je_analysis:');
+        console.log('📋 PARÁMETROS PARA EL SP sp_insert_audit_test_exec_je_analysis:');
         console.log('================================================================================');
         console.log('👤 Usuario y Contexto:', response.data.sp_params.usuario_y_contexto);
         console.log('📅 Período:', response.data.sp_params.periodo);
         console.log('💾 Storage:', response.data.sp_params.storage);
-        console.log('📄 Journal Entry (JE):', response.data.sp_params.journal_entry);
-        console.log('📊 Trial Balance (TB):', response.data.sp_params.trial_balance);
+
+        // Mostrar datos del archivo subido ahora o datos completos si el SP se ejecutó
+        if (response.data.sp_params.archivo_subido_ahora) {
+          console.log('📄 Archivo subido ahora:', response.data.sp_params.archivo_subido_ahora);
+          console.log('⏳ Estado:', response.data.sp_params.estado);
+        }
+
+        if (response.data.sp_params.journal_entry) {
+          console.log('📄 Journal Entry (JE):', response.data.sp_params.journal_entry);
+        }
+
+        if (response.data.sp_params.trial_balance) {
+          console.log('📊 Trial Balance (TB):', response.data.sp_params.trial_balance);
+        }
+
         console.log('🔧 Opcionales:', response.data.sp_params.opcionales);
-        console.log('✅ Resultado del SP:', response.data.sp_params.resultado_sp);
+
+        if (response.data.sp_params.resultado_sp) {
+          console.log('✅ Resultado del SP:', response.data.sp_params.resultado_sp);
+        }
+
         console.log('================================================================================');
       }
 
@@ -229,15 +246,32 @@ class ImportService {
       // Si el backend devuelve sp_params, mostrarlos en consola
       if (response?.data?.sp_params) {
         console.log('================================================================================');
-        console.log('📋 PARÁMETROS DEL SP sp_insert_audit_test_exec_je_analysis:');
+        console.log('📋 PARÁMETROS PARA EL SP sp_insert_audit_test_exec_je_analysis:');
         console.log('================================================================================');
         console.log('👤 Usuario y Contexto:', response.data.sp_params.usuario_y_contexto);
         console.log('📅 Período:', response.data.sp_params.periodo);
         console.log('💾 Storage:', response.data.sp_params.storage);
-        console.log('📄 Journal Entry (JE):', response.data.sp_params.journal_entry);
-        console.log('📊 Trial Balance (TB):', response.data.sp_params.trial_balance);
+
+        // Mostrar datos del archivo subido ahora o datos completos si el SP se ejecutó
+        if (response.data.sp_params.archivo_subido_ahora) {
+          console.log('📄 Archivo subido ahora:', response.data.sp_params.archivo_subido_ahora);
+          console.log('⏳ Estado:', response.data.sp_params.estado);
+        }
+
+        if (response.data.sp_params.journal_entry) {
+          console.log('📄 Journal Entry (JE):', response.data.sp_params.journal_entry);
+        }
+
+        if (response.data.sp_params.trial_balance) {
+          console.log('📊 Trial Balance (TB):', response.data.sp_params.trial_balance);
+        }
+
         console.log('🔧 Opcionales:', response.data.sp_params.opcionales);
-        console.log('✅ Resultado del SP:', response.data.sp_params.resultado_sp);
+
+        if (response.data.sp_params.resultado_sp) {
+          console.log('✅ Resultado del SP:', response.data.sp_params.resultado_sp);
+        }
+
         console.log('================================================================================');
       }
 
