@@ -81,7 +81,7 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
         id: 3,
         name: "Validaciones Temporales",
         validations: [
-          "Fecha contable en el Período",
+          "Fecha contable en el período",
           "Fecha registro excede el Período contable"
         ]
       },
