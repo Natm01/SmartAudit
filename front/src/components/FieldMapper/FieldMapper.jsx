@@ -177,37 +177,21 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
   }, [mapperData]);
 
   // ============================================
-  // ✅ EFECTO 4: Sincronizar columnas del archivo ACTUAL
+  // ✅ EFECTO 4: Cargar columnas ORIGINALES (solo UNA VEZ)
   // ============================================
   useEffect(() => {
     if (!originalFields || originalFields.length === 0) return;
 
-    const currentCols = mapperData.originalColumns;
-    const newCols = originalFields;
-
-    // Detectar si las columnas cambiaron
-    const changed = currentCols.length === 0 ||
-                   currentCols.length !== newCols.length ||
-                   !currentCols.every((col, i) => col === newCols[i]);
-
-    if (changed) {
-      if (currentCols.length > 0) {
-        // Archivo DIFERENTE → limpiar mapeos
-        console.log('⚠️ Archivo diferente detectado');
-        setMapperData({
-          originalColumns: newCols,
-          mappings: {},
-          confidences: {},
-          appliedToBackend: false
-        });
-      } else {
-        // Primera carga → mantener mapeos si existen
-        console.log('✅ Columnas actualizadas');
-        setMapperData(prev => ({
-          ...prev,
-          originalColumns: newCols
-        }));
-      }
+    // ✅ CRÍTICO: Solo actualizar si NO tenemos columnas guardadas
+    if (mapperData.originalColumns.length === 0) {
+      console.log('✅ Cargando columnas ORIGINALES del Excel:', originalFields);
+      setMapperData(prev => ({
+        ...prev,
+        originalColumns: originalFields
+      }));
+    } else {
+      console.log('ℹ️ Ya tenemos columnas guardadas, NO sobrescribir:', mapperData.originalColumns);
+      console.log('   Columnas que intentaban sobrescribir:', originalFields);
     }
   }, [originalFields]);
 
