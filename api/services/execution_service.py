@@ -304,12 +304,19 @@ class ExecutionService:
             
             if getattr(base_execution, 'file_type', None) == 'Je':
                 result['libro_diario'] = base_execution
-                
-                ss_id = f"{execution_id}-ss"
+
+                # Buscar Sumas y Saldos hijo por parent_execution_id
                 try:
-                    ss_execution = self.get_execution(ss_id)
-                    result['sumas_saldos'] = ss_execution
-                except:
+                    ss_executions = self.list_executions(file_type="Sys", parent_execution_id=execution_id)
+                    if ss_executions and len(ss_executions) > 0:
+                        # Convertir dict a ExecutionStatus si es necesario
+                        ss_data = ss_executions[0]
+                        if isinstance(ss_data, dict):
+                            result['sumas_saldos'] = ExecutionStatus(**ss_data)
+                        else:
+                            result['sumas_saldos'] = ss_data
+                except Exception as e:
+                    logger.warning(f"Could not find Sumas y Saldos for parent {execution_id}: {e}")
                     pass
                     
             elif getattr(base_execution, 'file_type', None) == 'Sys':

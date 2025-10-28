@@ -97,7 +97,6 @@ const ValidationPage = () => {
       sessionStorage.removeItem(getStorageKey('executionData'));
       // Limpiar flags de mapeo aplicado
       sessionStorage.removeItem(`mappingApplied_${executionId}`);
-      sessionStorage.removeItem(`mappingApplied_${executionId}-ss`);
     } catch (error) {
       console.warn('Could not clear sessionStorage:', error);
     }
@@ -110,12 +109,6 @@ const ValidationPage = () => {
       const mappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}`);
       if (mappingAppliedStatus === 'true') {
         setIsMappingApplied(true);
-      }
-
-      // Cargar estado de mapeo aplicado para Sumas y Saldos
-      const ssMappingAppliedStatus = sessionStorage.getItem(`mappingApplied_${executionId}-ss`);
-      if (ssMappingAppliedStatus === 'true') {
-        setIsSumasSaldosMappingApplied(true);
       }
     } catch (error) {
       console.warn('Could not load mapping applied status:', error);
@@ -187,29 +180,28 @@ const ValidationPage = () => {
       console.log('ðŸ“‹ Datos de ejecución preparados:', execData);
       setExecutionData(execData);
 
-      // Intentar obtener datos de Sumas y Saldos si existe
+      // Intentar obtener datos de Sumas y Saldos usando el endpoint coordinated
       try {
-        const sumasSaldosId = `${executionId}-ss`; // El formato correcto segÃºn execution_service.py
-        console.log('Buscando Sumas y Saldos con ID:', sumasSaldosId);
-        
-        const ssExecution = await importService.getExecutionStatus(sumasSaldosId);
-        console.log('Respuesta de bÃºsqueda SS:', ssExecution);
-        
-        if (ssExecution && ssExecution.success && ssExecution.execution) {
-          const executionInfo = ssExecution.execution;
+        console.log('🔍 Buscando archivos coordinados para:', executionId);
+
+        const coordinatedResponse = await importService.getCoordinatedExecutions(executionId);
+        console.log('📦 Respuesta de archivos coordinados:', coordinatedResponse);
+
+        if (coordinatedResponse && coordinatedResponse.sumas_saldos) {
+          const ssInfo = coordinatedResponse.sumas_saldos;
           setSumasSaldosExecutionData({
-            execution_id: sumasSaldosId,
-            fileName: executionInfo.file_name || 'Sumas_Saldos.xlsx',
-            status: executionInfo.status,
-            file_path: executionInfo.file_path
+            execution_id: ssInfo.execution_id,
+            fileName: ssInfo.file_name || 'Sumas_Saldos.xlsx',
+            status: ssInfo.status,
+            file_path: ssInfo.file_path || null
           });
-          console.log('Datos de Sumas y Saldos encontrados:', executionInfo);
+          console.log('✅ Datos de Sumas y Saldos encontrados:', ssInfo);
         } else {
-          console.log('No hay archivo de Sumas y Saldos para esta ejecución');
+          console.log('⚠️ No hay archivo de Sumas y Saldos para esta ejecución');
           setSumasSaldosExecutionData(null);
         }
       } catch (err) {
-        console.log('No se encontrÃ³ archivo de Sumas y Saldos:', err.message);
+        console.log('❌ No se encontró archivo de Sumas y Saldos:', err.message);
         setSumasSaldosExecutionData(null);
       }
 

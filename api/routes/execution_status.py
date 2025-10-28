@@ -261,21 +261,24 @@ async def get_import_details(execution_id: str):
                 file_path=execution.file_path
             )
 
-        # Buscar Sumas y Saldos relacionado
+        # Buscar Sumas y Saldos relacionado por parent_execution_id
         sumas_saldos_metadata = None
         try:
-            # Intentar encontrar la ejecución de Sumas y Saldos relacionada
-            ss_execution_id = f"{execution_id}-ss"
-            ss_execution = execution_service.get_execution(ss_execution_id)
+            # Buscar ejecuciones hijas de tipo Sys (Sumas y Saldos)
+            ss_executions = execution_service.list_executions(
+                file_type="Sys",
+                parent_execution_id=execution_id
+            )
 
-            if ss_execution:
+            if ss_executions and len(ss_executions) > 0:
+                ss_execution_data = ss_executions[0]
                 sumas_saldos_metadata = FileMetadata(
-                    file_name=getattr(ss_execution, 'file_name', None),
-                    file_size=getattr(ss_execution, 'file_size', None),
-                    file_extension=getattr(ss_execution, 'file_extension', None),
-                    file_path=getattr(ss_execution, 'file_path', None)
+                    file_name=ss_execution_data.get('file_name'),
+                    file_size=ss_execution_data.get('file_size'),
+                    file_extension=ss_execution_data.get('file_extension'),
+                    file_path=ss_execution_data.get('file_path')
                 )
-        except:
+        except Exception as e:
             # Si no existe Sumas y Saldos, continuar sin error
             pass
 

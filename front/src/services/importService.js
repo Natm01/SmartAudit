@@ -848,35 +848,19 @@ class ImportService {
 
   async getCoordinatedExecutions(executionId) {
     try {
-      const ldId = executionId.endsWith('-ss') ? executionId.replace('-ss', '') : executionId;
-      const ssId = executionId.endsWith('-ss') ? executionId : `${executionId}-ss`;
+      // Usar el endpoint coordinated del backend
+      const response = await api.get(`/api/import/status/${encodeURIComponent(executionId)}/coordinated`);
 
-      const [ldResult, ssResult] = await Promise.allSettled([
-        this.getExecutionStatus(ldId),
-        this.getExecutionStatus(ssId)
-      ]);
-
-      const coordinated = {};
-
-      if (ldResult.status === 'fulfilled' && ldResult.value.success) {
-        coordinated.libroDiario = {
-          executionId: ldId,
-          ...ldResult.value.execution
-        };
-      }
-
-      if (ssResult.status === 'fulfilled' && ssResult.value.success) {
-        coordinated.sumasSaldos = {
-          executionId: ssId,
-          ...ssResult.value.execution
-        };
-      }
-
-      return { success: true, data: coordinated };
+      // El backend devuelve { execution_id, libro_diario, sumas_saldos }
+      return {
+        success: true,
+        libro_diario: response?.data?.libro_diario || null,
+        sumas_saldos: response?.data?.sumas_saldos || null
+      };
     } catch (error) {
       return {
         success: false,
-        error: error.message || 'Error al obtener executions coordinadas'
+        error: error?.response?.data?.detail || error?.message || 'Error al obtener executions coordinadas'
       };
     }
   }
