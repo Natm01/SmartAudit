@@ -269,6 +269,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
           setFieldMappings(frontendMappings);
           setOriginalBackendMappings(frontendMappings);
 
+          // IMPORTANTE: Guardar el automapeo en sessionStorage para persistir al recargar
+          saveMappingToStorage(frontendMappings, {});
+          console.log('💾 Automapeo de Sumas y Saldos guardado en sessionStorage');
+
           // ❌ NO guardar flag de mapeo aplicado al cargar automapeo del backend
           // Los mapeos del backend son AUTOMAPEOS, no mapeos aplicados manualmente
           console.log('ℹ️ Automapeo de Sumas y Saldos cargado en la tabla, pero flag mappingApplied NO modificado');
@@ -308,6 +312,10 @@ const FieldMapper = ({ originalFields, onMappingChange, isOpen, onToggle, fileTy
           setFieldMappings(frontendMappings);
           setFieldConfidences(confidences);
           setOriginalBackendMappings({ mappings: frontendMappings, confidences });
+
+          // IMPORTANTE: Guardar el automapeo en sessionStorage para persistir al recargar
+          saveMappingToStorage(frontendMappings, confidences);
+          console.log('💾 Automapeo del Libro Diario guardado en sessionStorage');
 
           // ❌ NO guardar flag de mapeo aplicado al cargar automapeo del backend
           // Los mapeos del backend son AUTOMAPEOS, no mapeos aplicados manualmente
