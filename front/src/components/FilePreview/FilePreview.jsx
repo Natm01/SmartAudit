@@ -547,6 +547,23 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
       } catch (error) {
         console.warn('Could not save mapping applied status:', error);
       }
+
+      // NUEVO: Limpiar el estado de validación para permitir re-validar
+      try {
+        const validationStorageKey = `validation_${executionId}_${fileType}`;
+        sessionStorage.removeItem(`${validationStorageKey}_phases`);
+        sessionStorage.removeItem(`${validationStorageKey}_allCompleted`);
+        sessionStorage.removeItem(`${validationStorageKey}_progressData`);
+        sessionStorage.removeItem(`${validationStorageKey}_isExpanded`);
+        sessionStorage.removeItem(`${validationStorageKey}_timestamp`);
+
+        // Guardar un timestamp de cuando se aplicó el mapeo para que ValidationPhases lo detecte
+        sessionStorage.setItem(`${validationStorageKey}_mappingAppliedAt`, Date.now().toString());
+
+        console.log(`🧹 Estado de validación limpiado para permitir re-validar después de re-mapear`);
+      } catch (error) {
+        console.warn('Could not clear validation state:', error);
+      }
     }
 
     setShowAppliedNotification(true);

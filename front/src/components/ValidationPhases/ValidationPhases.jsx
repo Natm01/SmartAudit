@@ -135,6 +135,46 @@ const ValidationPhases = ({ fileType, executionId, period, onComplete, isMapping
     }
   }, [isExpanded]);
 
+  // Detectar cuando se aplica un nuevo mapeo y resetear el estado de validación
+  useEffect(() => {
+    // Verificar periódicamente si se aplicó un nuevo mapeo
+    const interval = setInterval(() => {
+      try {
+        const mappingAppliedAt = sessionStorage.getItem(getStorageKey('mappingAppliedAt'));
+        const savedCompleted = sessionStorage.getItem(getStorageKey('allCompleted'));
+
+        // Si hay un timestamp de mapeo aplicado y la validación está completada, resetear
+        if (mappingAppliedAt && allCompleted && !savedCompleted) {
+          console.log('🔄 Nuevo mapeo detectado después de validación, reseteando componente...');
+
+          // Resetear todas las fases a pendiente
+          const resetPhases = currentPhaseDefinitions.map(phase => ({
+            ...phase,
+            status: 'pending'
+          }));
+
+          setPhases(resetPhases);
+          setAllCompleted(false);
+          setProgressData({
+            completed: 0,
+            total: getTotalPhases()
+          });
+          setValidationError(null);
+          setIsExpanded(false);
+
+          // Remover el timestamp para no resetear múltiples veces
+          sessionStorage.removeItem(getStorageKey('mappingAppliedAt'));
+
+          console.log('✅ Componente de validación reseteado, botón de validación disponible');
+        }
+      } catch (error) {
+        console.warn('Error checking validation state:', error);
+      }
+    }, 500); // Verificar cada 500ms
+
+    return () => clearInterval(interval);
+  }, [allCompleted]);
+
   const startValidation = async () => {
     if (!executionId) {
       setValidationError('Falta executionId');
