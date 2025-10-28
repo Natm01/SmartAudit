@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 import tempfile
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Any
 from datetime import datetime, UTC
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
