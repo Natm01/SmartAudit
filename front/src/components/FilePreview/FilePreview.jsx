@@ -234,10 +234,22 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
             // CRÍTICO: Solo marcar como aplicado si fue explícitamente aplicado
             if (wasExplicitlyApplied) {
               appliedMappingsRef.current = mappings;
-              setFieldMappings(mappings);
+
+              // Reconstruir mapeos para el preview mapeado
+              // Los mapeos guardados son {columnaExcel: campoBD}
+              // Pero para el preview mapeado necesitamos {campoBD: campoBD}
+              const reconstructedMappings = {};
+              Object.entries(mappings).forEach(([excelCol, bdField]) => {
+                if (bdField) {
+                  reconstructedMappings[bdField] = bdField;
+                }
+              });
+
+              setFieldMappings(reconstructedMappings);
               setShowMappedNames(true);
               setShowMappedPreview(true);
               console.log('✅ Preview mapeado activado (mapeo fue aplicado explícitamente con botón "Aplicar Mapeo")');
+              console.log('   Mapeos reconstruidos:', reconstructedMappings);
             } else {
               // NO cargar los mapeos visuales si no fueron aplicados explícitamente
               // Los mapeos están en sessionStorage para FieldMapper, pero NO para el preview
