@@ -308,9 +308,43 @@ async def get_sumas_saldos_validation_summary(execution_id: str):
         print(f"📊 [SUMMARY] is_validating: {is_validating}")
 
         if not validation_results:
+            # Si el step indica que completó pero no hay resultados, es porque no se guardaron
+            # Esto puede pasar si el modelo no tenía el campo cuando se ejecutó
+            if execution.step == "sumas_saldos_validation_completed":
+                print(f"⚠️ [SUMMARY] Validación completada pero resultados no disponibles")
+                return {
+                    "execution_id": execution_id,
+                    "status": "completed",
+                    "phases": [
+                        {"phase": 1, "name": "Validaciones de Formato", "status": "completed"}
+                    ],
+                    "progress": {
+                        "completed": 1,
+                        "total": 1
+                    },
+                    "warning": "Validation completed but results not saved (field may not exist in execution model)"
+                }
+
+            # Si el step indica que falló
+            if execution.step == "sumas_saldos_validation_failed":
+                print(f"⚠️ [SUMMARY] Validación falló")
+                return {
+                    "execution_id": execution_id,
+                    "status": "completed_with_errors",
+                    "phases": [
+                        {"phase": 1, "name": "Validaciones de Formato", "status": "failed"}
+                    ],
+                    "progress": {
+                        "completed": 1,
+                        "total": 1
+                    }
+                }
+
             # Si está validando, mostrar status "validating", sino "pending"
             phase_status = "validating" if is_validating else "pending"
             overall_status = "processing" if is_validating else "not_started"
+
+            print(f"📊 [SUMMARY] Retornando status: {overall_status}, phase_status: {phase_status}")
 
             return {
                 "execution_id": execution_id,
