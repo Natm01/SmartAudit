@@ -466,11 +466,47 @@ async def upload_file(
         # ===================================================================
         # INTENTAR EJECUTAR EL SP SI AMBOS ARCHIVOS ESTÁN LISTOS
         # ===================================================================
-        # Solo intentar si:
+        # Construir parámetros para debugging (siempre, aunque el SP no se ejecute)
+        sp_params_for_frontend = None
+
+        if auth_user_id and tenant_id and workspace_id and project_id and period_beginning_date and period_ending_date and fiscal_year:
+            # Obtener extensión del archivo actual
+            current_ext = file_extension
+
+            sp_params_for_frontend = {
+                "usuario_y_contexto": {
+                    "auth_user_id": auth_user_id,
+                    "tenant_id": tenant_id,
+                    "workspace_id": workspace_id,
+                    "project_id": int(project_id)
+                },
+                "periodo": {
+                    "period_beginning_date": period_beginning_date,
+                    "period_ending_date": period_ending_date,
+                    "fiscal_year": fiscal_year
+                },
+                "storage": {
+                    "storage_relative_path": f"tenants/{tenant_id}/workspaces/{workspace_id}/"
+                },
+                "archivo_subido_ahora": {
+                    "file_type": file_type,
+                    "file_name": original_filename,
+                    "file_extension": current_ext.lstrip('.'),
+                    "file_type_code": 'XLSX' if current_ext in ['.xls', '.xlsx'] else 'CSV',
+                    "file_size_bytes": final_file_size,
+                    "file_size_mb": round(final_file_size / (1024*1024), 2) if final_file_size else 0
+                },
+                "opcionales": {
+                    "external_gid": None,
+                    "correlation_id": f"upload-{execution_id}",
+                    "language_code": language_code
+                },
+                "estado": "Esperando que se suban ambos archivos (JE + TB)" if file_type == "Je" else "Procesando segundo archivo (TB)..."
+            }
+
+        # Solo intentar ejecutar el SP si:
         # 1. No es upload en background
         # 2. Tenemos todos los datos necesarios para el SP
-        sp_params_for_frontend = None  # Para enviar al frontend
-
         if (not file_path.startswith("uploading_to_azure://") and
             auth_user_id and tenant_id and workspace_id and project_id and
             period_beginning_date and period_ending_date and fiscal_year):
