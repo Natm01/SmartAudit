@@ -292,7 +292,26 @@ class SumasSaldosService:
 
         # Ensure all columns
         result = self._ensure_all_columns_sumas_saldos(result)
-        
+
+        # 🔍 FILTRAR FILAS SIN NÚMERO DE CUENTA
+        # Eliminar filas donde gl_account_number esté vacío (NaN, None, o string vacío)
+        rows_before = len(result)
+
+        # Filtrar: mantener solo filas donde gl_account_number NO sea nulo Y NO sea vacío
+        result = result[
+            result['gl_account_number'].notna() &
+            (result['gl_account_number'].astype(str).str.strip() != '')
+        ]
+
+        rows_after = len(result)
+        rows_removed = rows_before - rows_after
+
+        if rows_removed > 0:
+            logger.info(f"🧹 Eliminadas {rows_removed} filas sin número de cuenta (gl_account_number vacío)")
+            logger.info(f"📊 Filas válidas restantes: {rows_after}")
+        else:
+            logger.info(f"✅ Todas las {rows_after} filas tienen número de cuenta válido")
+
         # Save to CSV
         if self.settings.use_azure_storage:
             # Save to temp file then upload
