@@ -778,6 +778,19 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
                       // Solo mostrar como mapeado si el mapeo fue aplicado explícitamente
                       const mapped = showMappedPreview && fieldMappings[h];
 
+                      // ✅ NUEVO: Buscar el nombre ORIGINAL del Excel (no del CSV mapeado)
+                      // appliedMappingsRef.current = { "FECHA": "posting_date", ... }
+                      // Si h = "posting_date", buscar "FECHA"
+                      let originalName = h;
+                      if (showMappedPreview && appliedMappingsRef.current) {
+                        const entry = Object.entries(appliedMappingsRef.current).find(
+                          ([_, bdField]) => bdField === h
+                        );
+                        if (entry) {
+                          originalName = entry[0]; // El nombre original del Excel
+                        }
+                      }
+
                       return (
                         <th
                           key={h}
@@ -791,8 +804,8 @@ const FilePreview = ({ file, fileType, executionId, maxRows = 25, showMapperByDe
                           {mapped ? (
                             <div className="space-y-0.5">
                               <div className="text-blue-700 font-bold">{mapped}</div>
-                              {h !== mapped && (
-                                <div className="text-gray-500 font-normal text-[10px]">({h})</div>
+                              {originalName !== mapped && (
+                                <div className="text-gray-500 font-normal text-[10px]">({originalName})</div>
                               )}
                             </div>
                           ) : (
