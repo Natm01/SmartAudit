@@ -32,16 +32,16 @@ class DatabaseUploadService:
             Dict with 'valid' boolean and list of 'missing_files'
         """
         required_files = [
-            f"{execution_id}_journal_entries_Je.csv",
-            f"{execution_id}_journal_entry_lines_Je.csv",
-            f"{execution_id}_trial_balance_Je.csv"
+            f"je/{execution_id}_journal_entries_Je.csv",
+            f"je/{execution_id}_journal_entry_lines_Je.csv",
+            f"sys/{execution_id}_trial_balance_Je.csv"
         ]
-        
+
         missing_files = []
-        
+
         for filename in required_files:
-            # Construct blob URL - files are in "libro-diario" container
-            blob_url = f"azure://libro-diario/{filename}"
+            # Construct blob URL - files are in "libro-diario-resultados" container
+            blob_url = f"azure://libro-diario-resultados/{filename}"
             
             if not self.storage_service.file_exists(blob_url):
                 missing_files.append(filename)
@@ -90,10 +90,13 @@ class DatabaseUploadService:
             
             # Define blob relative paths (for SQL Server External Data Source)
             # The SPs expect paths relative to the blob container root
+            # Files are in "libro-diario-resultados" container:
+            # - Journal entries in "je/" folder
+            # - Trial balance (sumas y saldos) in "sys/" folder
             blob_paths = {
-                "journal_entries": f"libro-diario/{execution_id}_journal_entries_Je.csv",
-                "journal_entry_lines": f"libro-diario/{execution_id}_journal_entry_lines_Je.csv",
-                "trial_balance": f"libro-diario/{execution_id}_trial_balance_Je.csv"
+                "journal_entries": f"libro-diario-resultados/je/{execution_id}_journal_entries_Je.csv",
+                "journal_entry_lines": f"libro-diario-resultados/je/{execution_id}_journal_entry_lines_Je.csv",
+                "trial_balance": f"libro-diario-resultados/sys/{execution_id}_trial_balance_Je.csv"
             }
             
             logger.info(f"Blob paths configured:")
