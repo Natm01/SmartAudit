@@ -234,9 +234,9 @@ async def try_execute_audit_test_sp(
             tb_file_type_code=tb_file_type_code,
             tb_file_data_structure_type_code='TABULAR',
             tb_file_extension=tb_ext.lstrip('.'),
-            external_gid=execution_id,  # El execution_id de la ejecución actual
+            external_gid=je_execution_id,  # El execution_id del JE (único para todo el procedimiento)
             language_code=language_code,
-            correlation_id=f"upload-{execution_id}"
+            correlation_id=f"upload-{je_execution_id}"
         )
 
         if result['has_error']:
@@ -595,8 +595,8 @@ async def upload_file(
                             "tb_file_size_mb": round((getattr(tb_execution, 'file_size', 0) or 0) / (1024*1024), 2)
                         },
                         "opcionales": {
-                            "external_gid": execution_id,  # El execution_id de la ejecución actual
-                            "correlation_id": f"upload-{execution_id}",
+                            "external_gid": je_exec_id,  # El execution_id del JE (único para todo el procedimiento)
+                            "correlation_id": f"upload-{je_exec_id}",
                             "language_code": language_code
                         },
                         "resultado_sp": {
