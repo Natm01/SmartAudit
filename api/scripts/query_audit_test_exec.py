@@ -11,7 +11,7 @@ from db.connection import get_db_connection
 from datetime import datetime
 
 
-def query_audit_test_exec(limit=10):
+def query_audit_test_exec(limit=100):
     """
     Consultar los últimos registros de audit_test_exec
 

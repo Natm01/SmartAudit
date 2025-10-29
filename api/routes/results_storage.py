@@ -100,9 +100,9 @@ async def save_validated_results(
     Solo guarda los archivos si TODAS las validaciones pasaron correctamente.
 
     Estructura de carpetas:
-    - libro-diario-resultados/{project_id}/{execution_id}/sys/{execution_id}-sys.csv
-    - libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}-je-cabecera.csv
-    - libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}-je-detalle.csv
+    - libro-diario-resultados/{project_id}/{execution_id}/sys/{execution_id}_trial_balance_sys.csv
+    - libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}_journal_entries_Je.csv
+    - libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}_journal_entry_lines_Je.csv
 
     Args:
         execution_id: ID de la ejecución
