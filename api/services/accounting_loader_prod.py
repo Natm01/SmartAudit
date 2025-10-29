@@ -1,11 +1,8 @@
 import pyodbc
 import pandas as pd
-from datetime import datetime
-from typing import Tuple, List, Dict, Optional, Any
+from typing import Tuple, List, Dict, Any
 import sys
-import os
 import time
-from db.connection import get_connection_string
 
 
 class AccountingDataLoader:
@@ -20,26 +17,30 @@ class AccountingDataLoader:
           - analytics.entry_type: business_category por apunte **SIEMPRE calculado**, FK a ADS
     """
 
-    def __init__(
-        self,
-        tenant_id: int,
-        workspace_id: int,
-        project_id: int,
-        fiscal_year: int,
-        period_ending_date: str
-    ):
+    def __init__(self, execution_id: str):
+        # execution_id needed to bbdd access
+        self.execution_id = execution_id
+        
+        self.CONNECTION_STRING = (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            "SERVER=smau-dev-sql.database.windows.net;"
+            "DATABASE=smau-dev-sqldb;"
+            "UID=smau_dev_user;"
+            "PWD=x+4Cj5Gdnml*NfwujyENmUeeNxYz8kw-N_e4EeI6FRkI+;"
+            "Encrypt=yes;TrustServerCertificate=no;"
+            "Connection Timeout=30;"
+        )
+
         # Parámetros fijos
+        self.tenant_id = 101
+        self.workspace_id = 101
+        self.project_id = 101
         self.entity_id = 101
         self.dataset_id = 101
-        self.dataset_version_id = 201
+        self.dataset_version_id = 201 # 200,201,202,203,204,205,206,207,208,209,210
         self.platform_user_id = 1
-
-        # Parámetros desde execution
-        self.tenant_id = tenant_id
-        self.workspace_id = workspace_id
-        self.project_id = project_id
-        self.fiscal_year = fiscal_year
-        self.period_ending_date = period_ending_date
+        self.fiscal_year = 2024
+        self.period_ending_date = '2024-12-31'
 
         # Usa mapping de reporting_account para bitmask/combination
         self.uses_mapping_default = False
@@ -366,431 +367,6 @@ class AccountingDataLoader:
             print(f"✗ Error loading {file_type}: {str(e)}")
             raise
 
-
-    ''' 
-    def bulk_insert_files(self, conn, je_blob_path: str, jel_blob_path: str, tb_blob_path: str):
-        """
-        Carga los CSVs desde Azure Blob Storage mediante SPs y actualiza el Chart of Accounts.
-        - Usa los SPs staging.sp_load_*_csv_from_blob
-        - Limpia staging de manera segura (por dataset_version_id)
-        - Regenera el chart_of_accounts según las cuentas nuevas detectadas
-        """
-        cursor = conn.cursor()
-        try:
-            print("Cleaning STAGING...")
-
-            # Limpieza por dataset_version_id (en lotes, para evitar bloqueos)
-            tables = [
-                "staging.journal_entry_lines",
-                "staging.journal_entries",
-                "staging.trial_balance",
-                "staging.chart_of_accounts"
-            ]
-            for table in tables:
-                while True:
-                    cursor.execute(f"""
-                        DELETE TOP (10000) FROM {table}
-                        WHERE dataset_version_id = ?
-                    """, (self.dataset_version_id,))
-                    conn.commit()
-                    if cursor.rowcount == 0:
-                        break
-            print("Staging cleaned")
-
-            # Ejecutar SP: Journal Entries
-            print("Loading journal_entries from blob...")
-            cursor.execute("""
-                EXEC staging.sp_load_journal_entries_csv_from_blob 
-                    @auth_user_id = ?, 
-                    @dataset_version_id = ?, 
-                    @blob_relative_path = ?
-            """, (self.platform_user_id, self.dataset_version_id, je_blob_path))
-            conn.commit()
-
-            # Ejecutar SP: Journal Entry Lines
-            print("Loading journal_entry_lines from blob...")
-            cursor.execute("""
-                EXEC staging.sp_load_journal_entry_lines_csv_from_blob 
-                    @auth_user_id = ?, 
-                    @dataset_version_id = ?, 
-                    @blob_relative_path = ?
-            """, (self.platform_user_id, self.dataset_version_id, jel_blob_path))
-            conn.commit()
-
-            # Ejecutar SP: Trial Balance
-            print("Loading trial_balance from blob...")
-            cursor.execute("""
-                EXEC staging.sp_load_trial_balance_csv_from_blob 
-                    @auth_user_id = ?, 
-                    @dataset_version_id = ?, 
-                    @blob_relative_path = ?
-            """, (self.platform_user_id, self.dataset_version_id, tb_blob_path))
-            conn.commit()
-
-            # Regenerar Chart of Accounts
-            print("Rebuilding Chart of Accounts...")
-
-            # Asegurar estructura PGC (si no existe)
-            self.ensure_pgc_estructura_exists(conn)
-
-            # Crear/actualizar cuentas en chart_of_accounts
-            cursor.execute(f"""
-                WITH acc AS (
-                    SELECT DISTINCT gl_account_number FROM staging.journal_entry_lines
-                    WHERE dataset_version_id = {self.dataset_version_id}
-                    UNION
-                    SELECT DISTINCT gl_account_number FROM staging.trial_balance
-                    WHERE dataset_version_id = {self.dataset_version_id}
-                ),
-                norm AS (
-                    SELECT 
-                        a.gl_account_number,
-                        LEFT(RIGHT(REPLICATE('0',11) + REPLACE(a.gl_account_number, ' ', ''), 11), 11) AS padded
-                    FROM acc a
-                )
-                INSERT INTO staging.chart_of_accounts (
-                    tenant_id, workspace_id, project_id, entity_id,
-                    dataset_id, dataset_version_id,
-                    gl_account_number,
-                    gl_account_name, account_type, account_description,
-                    parent_account_number, account_level, account_hierarchy,
-                    is_active, posting_account,
-                    financial_statement_line_item, financial_statement_section, report_sequence,
-                    normal_balance, account_category, account_subcategory,
-                    account_creation_date, account_closure_date, effective_date,
-                    user_defined_01, user_defined_02, user_defined_03,
-                    created_by, updated_by, batch_id
-                )
-                SELECT
-                    {self.tenant_id}, {self.workspace_id}, {self.project_id}, {self.entity_id},
-                    {self.dataset_id}, {self.dataset_version_id},
-                    n.gl_account_number,
-                    ISNULL(p.descripcion, CONCAT('Account ', n.gl_account_number)) AS gl_account_name,
-                    CASE p.estado WHEN 'Balance' THEN 'Balance' WHEN 'PyG' THEN 'PyG' WHEN 'PN' THEN 'PN' ELSE 'Other' END AS account_type,
-                    ISNULL(p.criterio, CONCAT('Account ', n.gl_account_number, ' (not in PGC)')) AS account_description,
-                    NULL, 1, NULL,
-                    1, 1,
-                    NULL, p.seccion, NULL,
-                    CASE p.naturaleza WHEN 'Deudor' THEN 'D' WHEN 'Acreedor' THEN 'C' ELSE 'V' END,
-                    p.epigrafe, p.subepigrafe,
-                    GETUTCDATE(), NULL, GETUTCDATE(),
-                    NULL, NULL, NULL,
-                    {self.platform_user_id}, {self.platform_user_id}, NEWID()
-                FROM norm n
-                LEFT JOIN dbo.pgc_estructura p
-                ON n.padded BETWEEN p.cuenta_inicio AND p.cuenta_fin;
-            """)
-            conn.commit()
-
-            print("Chart of Accounts rebuilt successfully.")
-            print("STAGING load complete via Stored Procedures.")
-
-        except Exception as e:
-            conn.rollback()
-            raise Exception(f"Error loading staging via SPs: {str(e)}")
-    ''' 
-
-    
-
-
-    
-    '''   
-    def bulk_insert_files(self, conn, je_file: str, jel_file: str, tb_file: str):
-        cursor = conn.cursor()
-        try:
-            print("Cleaning STAGING...")
-            
-            # Limpieza normal
-            cursor.execute("DELETE FROM staging.journal_entry_lines WHERE dataset_version_id = ?", (self.dataset_version_id,))
-            cursor.execute("DELETE FROM staging.journal_entries WHERE dataset_version_id = ?", (self.dataset_version_id,))
-            cursor.execute("DELETE FROM staging.trial_balance WHERE dataset_version_id = ?", (self.dataset_version_id,))
-            cursor.execute("DELETE FROM staging.chart_of_accounts WHERE dataset_version_id = ?", (self.dataset_version_id,))
-            conn.commit()
-
-            # Usar un sufijo único para las tablas temporales en staging
-            temp_suffix = str(self.dataset_version_id).replace('-', '_')
-            raw_je_table = f"staging.raw_journal_entries_{temp_suffix}"
-            raw_jel_table = f"staging.raw_journal_entry_lines_{temp_suffix}"
-            raw_tb_table = f"staging.raw_trial_balance_{temp_suffix}"
-
-            # Eliminar tablas si ya existen (por si quedaron de ejecución anterior)
-            for table in [raw_je_table, raw_jel_table, raw_tb_table]:
-                cursor.execute(f"IF OBJECT_ID('{table}') IS NOT NULL DROP TABLE {table}")
-            
-            # Crear tablas regulares en staging
-            cursor.execute(f"""
-                CREATE TABLE {raw_je_table} (
-                    journal_entry_id NVARCHAR(25) NOT NULL,
-                    journal_id NVARCHAR(25) NULL,
-                    entry_date DATE NULL,
-                    entry_time TIME(0) NULL,
-                    posting_date DATE NULL,
-                    reversal_date DATE NULL,
-                    effective_date DATE NULL,
-                    description NVARCHAR(500) NULL,
-                    reference_number NVARCHAR(50) NULL,
-                    source NVARCHAR(100) NULL,
-                    entry_type NVARCHAR(50) NULL,
-                    recurring_entry BIT NULL,
-                    manual_entry BIT NULL,
-                    adjustment_entry BIT NULL,
-                    prepared_by NVARCHAR(100) NULL,
-                    approved_by NVARCHAR(100) NULL,
-                    approval_date DATE NULL,
-                    entry_status NVARCHAR(20) NULL,
-                    total_debit_amount DECIMAL(28,2) NULL,
-                    total_credit_amount DECIMAL(28,2) NULL,
-                    line_count INT NULL,
-                    fiscal_year INT NULL,
-                    period_number INT NULL,
-                    user_defined_01 NVARCHAR(50) NULL,
-                    user_defined_02 NVARCHAR(50) NULL,
-                    user_defined_03 NVARCHAR(50) NULL
-                )
-            """)
-
-            cursor.execute(f"""
-                CREATE TABLE {raw_jel_table} (
-                    journal_entry_id NVARCHAR(25) NOT NULL,
-                    line_number INT NOT NULL,
-                    gl_account_number NVARCHAR(25) NOT NULL,
-                    amount DECIMAL(28,2) NOT NULL,
-                    debit_credit_indicator CHAR(1) NOT NULL,
-                    business_unit NVARCHAR(50) NULL,
-                    cost_center NVARCHAR(25) NULL,
-                    department NVARCHAR(25) NULL,
-                    project_code NVARCHAR(25) NULL,
-                    location NVARCHAR(25) NULL,
-                    line_description NVARCHAR(255) NULL,
-                    reference_number NVARCHAR(50) NULL,
-                    customer_id NVARCHAR(25) NULL,
-                    vendor_id NVARCHAR(25) NULL,
-                    product_id NVARCHAR(25) NULL,
-                    user_defined_01 NVARCHAR(50) NULL,
-                    user_defined_02 NVARCHAR(50) NULL,
-                    user_defined_03 NVARCHAR(50) NULL,
-                    reporting_account NVARCHAR(50) NULL,
-                    business_category NVARCHAR(50) NULL
-                )
-            """)
-
-            cursor.execute(f"""
-                CREATE TABLE {raw_tb_table} (
-                    gl_account_number NVARCHAR(25) NOT NULL,
-                    reporting_account NVARCHAR(50) NULL,
-                    fiscal_year INT NULL,
-                    period_number INT NULL,
-                    period_ending_balance DECIMAL(28,2) NOT NULL,
-                    period_activity_debit DECIMAL(28,2) NULL,
-                    period_activity_credit DECIMAL(28,2) NULL,
-                    period_beginning_balance DECIMAL(28,2) NULL,
-                    period_ending_date DATE NULL,
-                    business_unit NVARCHAR(50) NULL,
-                    cost_center NVARCHAR(25) NULL,
-                    department NVARCHAR(25) NULL,
-                    user_defined_01 NVARCHAR(50) NULL,
-                    user_defined_02 NVARCHAR(50) NULL,
-                    user_defined_03 NVARCHAR(50) NULL
-                )
-            """)
-
-            print("BULK INSERT into staging raw tables ...")
-            for table, file in [(raw_je_table, je_file),
-                                (raw_jel_table, jel_file),
-                                (raw_tb_table, tb_file)]:
-                cursor.execute(f"""
-                    BULK INSERT {table}
-                    FROM '{file}'
-                    WITH (
-                        DATA_SOURCE = 'cloud_knowledge_dev',
-                        FIELDTERMINATOR = ',',
-                        ROWTERMINATOR = '0x0d0a',
-                        FIRSTROW = 2,
-                        DATAFILETYPE = 'char',
-                        CODEPAGE = '65001',
-                        KEEPNULLS,
-                        TABLOCK
-                    );
-                """)
-
-            conn.commit()
-
-            # PGC requerido para nombres/atributos de cuentas
-            self.ensure_pgc_estructura_exists(conn)
-
-            # 1) COA primero (para FKs de lines/TB)
-            print("Inserting STAGING.chart_of_accounts ...")
-            cursor.execute(f"""
-                WITH acc AS (
-                    SELECT DISTINCT gl_account_number FROM {raw_jel_table}
-                    UNION
-                    SELECT DISTINCT gl_account_number FROM {raw_tb_table}
-                ),
-                norm AS (
-                    SELECT 
-                        a.gl_account_number,
-                        LEFT(RIGHT(REPLICATE('0',11) + REPLACE(a.gl_account_number, ' ', ''), 11), 11) AS padded
-                    FROM acc a
-                )
-                INSERT INTO staging.chart_of_accounts (
-                    tenant_id, workspace_id, project_id, entity_id,
-                    dataset_id, dataset_version_id,
-                    gl_account_number,
-                    gl_account_name, account_type, account_description,
-                    parent_account_number, account_level, account_hierarchy,
-                    is_active, posting_account,
-                    financial_statement_line_item, financial_statement_section, report_sequence,
-                    normal_balance, account_category, account_subcategory,
-                    account_creation_date, account_closure_date, effective_date,
-                    user_defined_01, user_defined_02, user_defined_03,
-                    created_by, updated_by, batch_id
-                )
-                SELECT
-                    ?, ?, ?, ?,
-                    ?, ?,
-                    n.gl_account_number,
-                    ISNULL(p.descripcion, CONCAT('Account ', n.gl_account_number)) AS gl_account_name,
-                    CASE p.estado WHEN 'Balance' THEN 'Balance' WHEN 'PyG' THEN 'PyG' WHEN 'PN' THEN 'PN' ELSE 'Other' END AS account_type,
-                    ISNULL(p.criterio, CONCAT('Account ', n.gl_account_number, ' (not in PGC)')) AS account_description,
-                    NULL, 1, NULL,
-                    1, 1,
-                    NULL, p.seccion, NULL,
-                    CASE p.naturaleza WHEN 'Deudor' THEN 'D' WHEN 'Acreedor' THEN 'C' ELSE 'V' END,
-                    p.epigrafe, p.subepigrafe,
-                    GETUTCDATE(), NULL, GETUTCDATE(),
-                    NULL, NULL, NULL,
-                    ?, ?, NEWID()
-                FROM norm n
-                LEFT JOIN dbo.pgc_estructura p
-                ON n.padded BETWEEN p.cuenta_inicio AND p.cuenta_fin;
-            """, (self.tenant_id, self.workspace_id, self.project_id, self.entity_id,
-                self.dataset_id, self.dataset_version_id,
-                self.platform_user_id, self.platform_user_id))
-
-            # 2) JE
-            print("Inserting STAGING.journal_entries ...")
-            cursor.execute(f"""
-                INSERT INTO staging.journal_entries (
-                    tenant_id, workspace_id, project_id, entity_id,
-                    dataset_id, dataset_version_id,
-                    journal_entry_id, journal_id, entry_date, entry_time,
-                    posting_date, reversal_date, effective_date, description,
-                    reference_number, source, entry_type,
-                    recurring_entry, manual_entry, adjustment_entry, prepared_by, approved_by,
-                    approval_date, entry_status, total_debit_amount, total_credit_amount,
-                    line_count, fiscal_year, period_number,
-                    user_defined_01, user_defined_02, user_defined_03,
-                    created_by, updated_by, batch_id
-                )
-                SELECT
-                    {self.tenant_id}, {self.workspace_id}, {self.project_id}, {self.entity_id},
-                    {self.dataset_id}, {self.dataset_version_id},
-                    r.je_id, r.journal_id, r.entry_date, r.entry_time,
-                    r.posting_date, r.reversal_date, r.effective_date, r.description,
-                    r.reference_number, r.source, r.entry_type,
-                    r.recurring_entry, r.manual_entry, r.adjustment_entry, r.prepared_by, r.approved_by,
-                    r.approval_date, r.entry_status, r.total_debit_amount, r.total_credit_amount,
-                    r.line_count,
-                    ISNULL(r.fiscal_year, {self.fiscal_year}) AS fiscal_year,
-                    ISNULL(r.period_number, CASE WHEN r.posting_date IS NOT NULL THEN MONTH(r.posting_date) ELSE 1 END) AS period_number,
-                    r.user_defined_01, r.user_defined_02, r.user_defined_03,
-                    {self.platform_user_id}, {self.platform_user_id}, NEWID()
-                FROM (
-                    SELECT
-                        journal_entry_id AS je_id,
-                        journal_id, entry_date, entry_time,
-                        posting_date, reversal_date, effective_date, description,
-                        reference_number, source, entry_type,
-                        recurring_entry, manual_entry, adjustment_entry, prepared_by, approved_by,
-                        approval_date, entry_status, total_debit_amount, total_credit_amount,
-                        line_count, fiscal_year, period_number,
-                        user_defined_01, user_defined_02, user_defined_03
-                    FROM {raw_je_table}
-                ) r
-            """)
-
-            # 3) JEL (con business_category si viene)
-            print("Inserting STAGING.journal_entry_lines ...")
-            cursor.execute(f"""
-                INSERT INTO staging.journal_entry_lines (
-                    tenant_id, workspace_id, project_id, entity_id,
-                    dataset_id, dataset_version_id,
-                    journal_entry_id, reporting_account, line_number,
-                    gl_account_number, business_category,
-                    amount, debit_credit_indicator,
-                    business_unit, cost_center, department, project_code, location,
-                    line_description, reference_number, customer_id, vendor_id, product_id,
-                    user_defined_01, user_defined_02, user_defined_03,
-                    created_by, updated_by, batch_id
-                )
-                SELECT
-                    {self.tenant_id}, {self.workspace_id}, {self.project_id}, {self.entity_id},
-                    {self.dataset_id}, {self.dataset_version_id},
-                    r.journal_entry_id, r.reporting_account, r.line_number,
-                    r.gl_account_number, r.business_category,
-                    r.amount, r.debit_credit_indicator,
-                    r.business_unit, r.cost_center, r.department, r.project_code, r.location,
-                    r.line_description, r.reference_number, r.customer_id, r.vendor_id, r.product_id,
-                    r.user_defined_01, r.user_defined_02, r.user_defined_03,
-                    {self.platform_user_id}, {self.platform_user_id}, NEWID()
-                FROM {raw_jel_table} r
-            """)
-
-            # 4) TB
-            print("Inserting STAGING.trial_balance ...")
-            cursor.execute(f"""
-                INSERT INTO staging.trial_balance (
-                    tenant_id, workspace_id, project_id, entity_id,
-                    dataset_id, dataset_version_id,
-                    gl_account_number,
-                    fiscal_year, period_number,
-                    reporting_account,
-                    period_ending_balance, period_activity_debit, period_activity_credit,
-                    period_beginning_balance, period_ending_date,
-                    business_unit, cost_center, department,
-                    user_defined_01, user_defined_02, user_defined_03,
-                    created_by, updated_by, batch_id
-                )
-                SELECT
-                    {self.tenant_id}, {self.workspace_id}, {self.project_id}, {self.entity_id},
-                    {self.dataset_id}, {self.dataset_version_id},
-                    r.gl_account_number,
-                    ISNULL(r.fiscal_year, {self.fiscal_year}),
-                    ISNULL(r.period_number, CASE WHEN r.period_ending_date IS NOT NULL THEN MONTH(r.period_ending_date) ELSE 1 END),
-                    r.reporting_account,
-                    r.period_ending_balance, r.period_activity_debit, r.period_activity_credit,
-                    r.period_beginning_balance,
-                    ISNULL(r.period_ending_date, '{self.period_ending_date}'),
-                    r.business_unit, r.cost_center, r.department,
-                    r.user_defined_01, r.user_defined_02, r.user_defined_03,
-                    {self.platform_user_id}, {self.platform_user_id}, NEWID()
-                FROM {raw_tb_table} r
-            """)
-
-            conn.commit()
-            
-            # Limpiar tablas temporales
-            print("Cleaning up temporary tables...")
-            for table in [raw_je_table, raw_jel_table, raw_tb_table]:
-                cursor.execute(f"DROP TABLE IF EXISTS {table}")
-            conn.commit()
-            
-            print("✓ STAGING loaded")
-
-        except Exception as e:
-            conn.rollback()
-            # Intentar limpiar tablas temporales en caso de error
-            try:
-                temp_suffix = str(self.dataset_version_id).replace('-', '_')
-                for table in [f"staging.raw_journal_entries_{temp_suffix}",
-                            f"staging.raw_journal_entry_lines_{temp_suffix}",
-                            f"staging.raw_trial_balance_{temp_suffix}"]:
-                    cursor.execute(f"DROP TABLE IF EXISTS {table}")
-                conn.commit()
-            except:
-                pass
-            raise Exception(f"Error loading staging: {str(e)}")
-    '''            
 
     # ----------------------------------------------------------------------
     # Validación simple de coherencia
@@ -1723,7 +1299,7 @@ class AccountingDataLoader:
         totality_df = None
         
         try:
-            conn = pyodbc.connect(get_connection_string())
+            conn = pyodbc.connect(self.CONNECTION_STRING)
 
             # Phase 1: Ensure dependencies
             t0 = time.time()
@@ -1823,19 +1399,12 @@ class AccountingDataLoader:
 
 def main():
     """Main function for command-line execution"""
-    # Parámetros de ejemplo para testing
-    loader = AccountingDataLoader(
-        tenant_id=101,
-        workspace_id=101,
-        project_id=101,
-        fiscal_year=2024,
-        period_ending_date='2024-12-31'
-    )
+    loader = AccountingDataLoader()
 
     # Archivos CSV
-    je_file = "libro-diario-resultados/je/journal_entries_Redur.csv"
-    jel_file = "libro-diario-resultados/je/journal_entry_lines_Redur.csv"
-    tb_file = "libro-diario-resultados/sys/trial_balance_Redur.csv"
+    je_file = "libro-diario/journal_entries_Redur.csv"
+    jel_file = "libro-diario/journal_entry_lines_Redur.csv"
+    tb_file = "libro-diario/trial_balance_Redur.csv"
 
     # ¿Usar mapping de reporting_account para bitmask/combination?
     needs_mapping = False

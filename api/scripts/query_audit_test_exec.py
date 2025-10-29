@@ -11,7 +11,7 @@ from db.connection import get_db_connection
 from datetime import datetime
 
 
-def query_audit_test_exec(limit=100):
+def query_audit_test_exec(limit=1):
     """
     Consultar los últimos registros de audit_test_exec
 
@@ -43,7 +43,7 @@ def query_audit_test_exec(limit=100):
                     updated_at,
                     updated_by
                 FROM workspace.audit_test_exec
-                ORDER BY id DESC
+                ORDER BY updated_at DESC
             """
 
             cursor.execute(query)
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Consultar registros de audit_test_exec')
-    parser.add_argument('--limit', type=int, default=10, help='Número de registros a mostrar (default: 10)')
+    parser.add_argument('--limit', type=int, default=1, help='Número de registros a mostrar (default: 10)')
     parser.add_argument('--id', type=int, help='Consultar un registro específico por ID')
     parser.add_argument('--project', type=int, help='Consultar registros de un proyecto específico')
 

@@ -22,11 +22,7 @@ router = APIRouter(prefix="/smau-proto/api/import", tags=["database_upload"])
 class DatabaseUploadRequest(BaseModel):
     """Request to upload data to database"""
     execution_id: str
-    tenant_id: int
-    workspace_id: int
-    project_id: int
-    fiscal_year: int
-    period_ending_date: str
+    dataset_version_id: Optional[int] = 201
     needs_mapping: Optional[bool] = False
 
 
@@ -51,37 +47,25 @@ class DatabaseUploadStatusResponse(BaseModel):
 # Background Task
 # ==========================================
 
-async def upload_to_database_background(
-    execution_id: str,
-    tenant_id: int,
-    workspace_id: int,
-    project_id: int,
-    fiscal_year: int,
-    period_ending_date: str,
-    needs_mapping: bool
-):
+async def upload_to_database_background(execution_id: str, dataset_version_id: int, needs_mapping: bool):
     """Background task for database upload"""
     execution_service = get_execution_service()
     db_upload_service = get_database_upload_service()
-
+    
     try:
         logger.info(f"Starting database upload for execution {execution_id}")
-
+        
         # Update status to processing
         execution_service.update_execution(
             execution_id,
             status="processing",
             step="database_upload"
         )
-
+        
         # Execute database upload
         result = await db_upload_service.upload_to_database(
             execution_id=execution_id,
-            tenant_id=tenant_id,
-            workspace_id=workspace_id,
-            project_id=project_id,
-            fiscal_year=fiscal_year,
-            period_ending_date=period_ending_date,
+            dataset_version_id=dataset_version_id,
             needs_mapping=needs_mapping
         )
         
@@ -135,16 +119,16 @@ async def start_database_upload(
 ):
     """
     Start database upload process for accounting data.
-
+    
     This endpoint:
     1. Validates that the execution exists and has required files
     2. Starts background task to load data to SQL Server
     3. Returns immediately while processing continues
-
-    Required files in blob storage (libro-diario-resultados container):
-    - {project_id}/{execution_id}/je/{execution_id}_journal_entries_Je.csv
-    - {project_id}/{execution_id}/je/{execution_id}_journal_entry_lines_Je.csv
-    - {project_id}/{execution_id}/sys/{execution_id}_trial_balance_sys.csv
+    
+    Required files in blob storage:
+    - {execution_id}_journal_entries_Je.csv
+    - {execution_id}_journal_entry_lines_Je.csv
+    - {execution_id}_trial_balance_Je.csv
     """
     execution_service = get_execution_service()
     db_upload_service = get_database_upload_service()
@@ -154,7 +138,7 @@ async def start_database_upload(
         execution = execution_service.get_execution(request.execution_id)
         
         # Validate required files exist in blob storage
-        validation_result = await db_upload_service.validate_files_exist(request.execution_id, request.project_id)
+        validation_result = await db_upload_service.validate_files_exist(request.execution_id)
         
         if not validation_result["valid"]:
             raise HTTPException(
@@ -166,11 +150,7 @@ async def start_database_upload(
         background_tasks.add_task(
             upload_to_database_background,
             request.execution_id,
-            request.tenant_id,
-            request.workspace_id,
-            request.project_id,
-            request.fiscal_year,
-            request.period_ending_date,
+            request.dataset_version_id,
             request.needs_mapping
         )
         
