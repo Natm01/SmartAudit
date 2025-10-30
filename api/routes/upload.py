@@ -205,11 +205,16 @@ async def try_execute_audit_test_sp(
 
         # Construir los nombres de los archivos como se suben al blob storage
         # Formato: {execution_id}_{file_type}.{extension}
+        # IMPORTANTE: Azure Storage Service remueve el sufijo "-ss" automáticamente,
+        # por lo que debemos hacer lo mismo aquí para que coincidan los nombres
+        je_exec_id_clean = je_execution_id.replace('-ss', '') if je_execution_id.endswith('-ss') else je_execution_id
+        tb_exec_id_clean = tb_execution_id.replace('-ss', '') if tb_execution_id.endswith('-ss') else tb_execution_id
+
         je_original_name = getattr(je_execution, 'file_name', '')
-        je_blob_name = f"{je_execution_id}_Je{je_ext}"
+        je_blob_name = f"{je_exec_id_clean}_Je{je_ext}"
 
         tb_original_name = getattr(tb_execution, 'file_name', '')
-        tb_blob_name = f"{tb_execution_id}_Sys{tb_ext}"
+        tb_blob_name = f"{tb_exec_id_clean}_Sys{tb_ext}"
 
         # Ejecutar el SP
         result = audit_service.insert_audit_test_exec_je_analysis(
@@ -548,12 +553,16 @@ async def upload_file(
                     je_exec_id = parent_execution_id if file_type == "Sys" else execution_id
                     tb_exec_id = execution_id if file_type == "Sys" else f"{execution_id}-ss"
 
+                    # Limpiar sufijo -ss (Azure Storage Service lo hace automáticamente)
+                    je_exec_id_clean = je_exec_id.replace('-ss', '') if je_exec_id.endswith('-ss') else je_exec_id
+                    tb_exec_id_clean = tb_exec_id.replace('-ss', '') if tb_exec_id.endswith('-ss') else tb_exec_id
+
                     # Construir nombres de blobs
                     je_orig_name = getattr(je_execution, 'file_name', '')
-                    je_blob_name = f"{je_exec_id}_Je{je_ext}"
+                    je_blob_name = f"{je_exec_id_clean}_Je{je_ext}"
 
                     tb_orig_name = getattr(tb_execution, 'file_name', '')
-                    tb_blob_name = f"{tb_exec_id}_Sys{tb_ext}"
+                    tb_blob_name = f"{tb_exec_id_clean}_Sys{tb_ext}"
 
                     sp_params_for_frontend = {
                         "usuario_y_contexto": {
