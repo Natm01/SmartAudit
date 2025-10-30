@@ -15,7 +15,7 @@ class AuditTestExecutionService:
     """Servicio para manejar la ejecución de pruebas de auditoría en la base de datos"""
 
     @staticmethod
-    def _build_storage_relative_path(tenant_id: int, workspace_id: int) -> str:
+    def _build_storage_relative_path(project_id: int, execution_id: int) -> str:
         """
         Construir el path relativo de storage
 
@@ -26,7 +26,7 @@ class AuditTestExecutionService:
         Returns:
             Path relativo: tenants/{tenant_id}/workspaces/{workspace_id}/
         """
-        return f"tenants/{tenant_id}/workspaces/{workspace_id}/"
+        return f"libro-diario-resultados/{project_id}/{execution_id}"
 
     @staticmethod
     def insert_audit_test_exec_je_analysis(
@@ -107,7 +107,7 @@ class AuditTestExecutionService:
 
         # Construir storage_relative_path
         storage_relative_path = AuditTestExecutionService._build_storage_relative_path(
-            tenant_id, workspace_id
+            project_id, external_gid
         )
 
         # Log detallado de TODOS los parámetros que se enviarán al SP
