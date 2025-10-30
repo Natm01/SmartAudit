@@ -238,10 +238,10 @@ async def try_execute_audit_test_sp(
             tb_file_size_bytes=getattr(tb_execution, 'file_size', 0) or 0,
             je_file_type_code=je_file_type_code,
             je_file_data_structure_type_code='TABULAR',
-            je_file_extension=je_ext.lstrip('.'),
+            je_file_extension='csv',
             tb_file_type_code=tb_file_type_code,
             tb_file_data_structure_type_code='TABULAR',
-            tb_file_extension=tb_ext.lstrip('.'),
+            tb_file_extension='csv',
             external_gid=je_execution_id,  # El execution_id del JE (único para todo el procedimiento)
             language_code=language_code,
             correlation_id=f"upload-{je_execution_id}"
@@ -589,7 +589,7 @@ async def upload_file(
                             "je_file_data_structure_type_code": 'TABULAR',
                             "je_original_file_name": je_orig_name,
                             "je_file_name": je_blob_name,  # Nombre del blob en storage
-                            "je_file_extension": je_ext.lstrip('.'),
+                            "je_file_extension": 'csv',
                             "je_file_size_bytes": getattr(je_execution, 'file_size', 0) or 0,
                             "je_file_size_mb": round((getattr(je_execution, 'file_size', 0) or 0) / (1024*1024), 2)
                         },
@@ -598,7 +598,7 @@ async def upload_file(
                             "tb_file_data_structure_type_code": 'TABULAR',
                             "tb_original_file_name": tb_orig_name,
                             "tb_file_name": tb_blob_name,  # Nombre del blob en storage
-                            "tb_file_extension": tb_ext.lstrip('.'),
+                            "tb_file_extension": 'csv',
                             "tb_file_size_bytes": getattr(tb_execution, 'file_size', 0) or 0,
                             "tb_file_size_mb": round((getattr(tb_execution, 'file_size', 0) or 0) / (1024*1024), 2)
                         },

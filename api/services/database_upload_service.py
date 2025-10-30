@@ -5,7 +5,7 @@ Database Upload Service - Handles uploading accounting data to SQL Server
 import logging
 from typing import Dict, Any, Optional
 
-from services.accounting_loader_prod import AccountingDataLoader
+from services.aac_load import AccountingDataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class DatabaseUploadService:
             # Initialize AccountingDataLoader with simple parameters
             logger.info("Initializing AccountingDataLoader...")
             loader = AccountingDataLoader(
-                execution_id=execution_id,
+                execution_id=execution_id.upper(),
                 auth_user_id=auth_user_id
             )
 
