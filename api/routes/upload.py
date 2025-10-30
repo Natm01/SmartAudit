@@ -216,6 +216,11 @@ async def try_execute_audit_test_sp(
         tb_original_name = getattr(tb_execution, 'file_name', '')
         tb_blob_name = f"{tb_exec_id_clean}_Sys{tb_ext}"
 
+        # Remover extensión de los nombres de archivo para guardar en la BD
+        # Los blob names en storage sí incluyen la extensión, pero en la BD no
+        je_file_name_without_ext = je_blob_name.rsplit('.', 1)[0] if '.' in je_blob_name else je_blob_name
+        tb_file_name_without_ext = tb_blob_name.rsplit('.', 1)[0] if '.' in tb_blob_name else tb_blob_name
+
         # Ejecutar el SP
         result = audit_service.insert_audit_test_exec_je_analysis(
             auth_user_id=auth_user_id,
@@ -226,10 +231,10 @@ async def try_execute_audit_test_sp(
             period_ending_date=period_end,
             fiscal_year=fiscal_year,
             je_original_file_name=je_original_name,
-            je_file_name=je_blob_name,  # Nombre del blob en storage
+            je_file_name=je_file_name_without_ext,  # SIN extensión para BD
             je_file_size_bytes=getattr(je_execution, 'file_size', 0) or 0,
             tb_original_file_name=tb_original_name,
-            tb_file_name=tb_blob_name,  # Nombre del blob en storage
+            tb_file_name=tb_file_name_without_ext,  # SIN extensión para BD
             tb_file_size_bytes=getattr(tb_execution, 'file_size', 0) or 0,
             je_file_type_code=je_file_type_code,
             je_file_data_structure_type_code='TABULAR',
