@@ -126,9 +126,9 @@ async def start_database_upload(
     3. Returns immediately while processing continues
     
     Required files in blob storage:
-    - {execution_id}_journal_entries_Je.csv
-    - {execution_id}_journal_entry_lines_Je.csv
-    - {execution_id}_trial_balance_Je.csv
+    - {execution_id}_Je_cabecera.csv
+    - {execution_id}_Je_detalles.csv
+    - {execution_id}_Sys.csv
     """
     execution_service = get_execution_service()
     db_upload_service = get_database_upload_service()

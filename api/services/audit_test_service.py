@@ -24,9 +24,9 @@ class AuditTestExecutionService:
             workspace_id: ID del workspace
 
         Returns:
-            Path relativo: tenants/{tenant_id}/workspaces/{workspace_id}/
+            Path relativo: libro-diario-resultados/{project_id}/{execution_id}
         """
-        return f"libro-diario-resultados/{project_id}/{execution_id}"
+        return f"libro-diario-resultados/{project_id}/{execution_id}/"
 
     @staticmethod
     def insert_audit_test_exec_je_analysis(

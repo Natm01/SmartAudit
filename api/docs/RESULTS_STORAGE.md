@@ -28,15 +28,15 @@ libro-diario-resultados/
   └── {project_id}/
       └── {execution_id}/
           ├── sys/
-          │   └── {execution_id}_trial_balance_sys.csv
+          │   └── {execution_id}_Sys.csv
           └── je/
-              ├── {execution_id}_journal_entries_Je.csv
-              └── {execution_id}_journal_entry_lines_Je.csv
+              ├── {execution_id}_Je_cabecera.csv
+              └── {execution_id}_Je_detalles.csv
 ```
 
 ### Archivos Generados
 
-#### 1. Sumas y Saldos (`{execution_id}_trial_balance_sys.csv`)
+#### 1. Sumas y Saldos (`{execution_id}_Sys.csv`)
 
 Contiene todas las columnas definidas en `config/trial_balance_table_mapping.json`:
 
@@ -53,7 +53,7 @@ Contiene todas las columnas definidas en `config/trial_balance_table_mapping.jso
 - `user_defined_02`
 - `user_defined_03`
 
-#### 2. Libro Diario - Cabecera (`{execution_id}_journal_entries_Je.csv`)
+#### 2. Libro Diario - Cabecera (`{execution_id}_Je_cabecera.csv`)
 
 Contiene las columnas de cabecera definidas en `config/journal_entries_table_mapping.json`:
 
@@ -84,7 +84,7 @@ Contiene las columnas de cabecera definidas en `config/journal_entries_table_map
 
 **Nota**: El archivo de cabecera contiene un registro único por `journal_entry_id`.
 
-#### 3. Libro Diario - Detalle (`{execution_id}_journal_entry_lines_Je.csv`)
+#### 3. Libro Diario - Detalle (`{execution_id}_Je_detalles.csv`)
 
 Contiene las columnas de detalle definidas en `config/journal_entries_table_mapping.json`:
 
@@ -194,9 +194,9 @@ Obtiene las rutas de los archivos guardados.
 **Response (200 OK):**
 ```json
 {
-  "journal_header": "azure://libro-diario-resultados/12345/abc-123/je/abc-123_journal_entries_Je.csv",
-  "journal_detail": "azure://libro-diario-resultados/12345/abc-123/je/abc-123_journal_entry_lines_Je.csv",
-  "trial_balance": "azure://libro-diario-resultados/12345/abc-123/sys/abc-123_trial_balance_sys.csv"
+  "journal_header": "azure://libro-diario-resultados/12345/abc-123/abc-123_Je_cabecera.csv",
+  "journal_detail": "azure://libro-diario-resultados/12345/abc-123/abc-123_Je_detalles.csv",
+  "trial_balance": "azure://libro-diario-resultados/12345/abc-123/abc-123_Sys.csv"
 }
 ```
 
@@ -359,9 +359,9 @@ INFO - Read journal entries CSV with 1234 rows
 INFO - Created header file with 123 rows and 24 columns
 INFO - Created detail file with 1234 rows and 21 columns
 INFO - Processing Sumas y Saldos file...
-INFO - Uploaded to results: azure://libro-diario-resultados/12345/ld-001/je/ld-001_journal_entries_Je.csv
-INFO - Uploaded to results: azure://libro-diario-resultados/12345/ld-001/je/ld-001_journal_entry_lines_Je.csv
-INFO - Uploaded to results: azure://libro-diario-resultados/12345/ld-001/sys/ld-001_trial_balance_sys.csv
+INFO - Uploaded to results: azure://libro-diario-resultados/12345/ld-001/ld-001_Je_cabecera.csv
+INFO - Uploaded to results: azure://libro-diario-resultados/12345/ld-001/ld-001_Je_detalles.csv
+INFO - Uploaded to results: azure://libro-diario-resultados/12345/ld-001/ld-001_Sys.csv
 INFO - Successfully saved 3 files to results container
 ```
 

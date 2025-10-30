@@ -33,9 +33,9 @@ class DatabaseUploadService:
             Dict with 'valid' boolean and list of 'missing_files'
         """
         required_files = [
-            f"{project_id}/{execution_id}/je/{execution_id}_journal_entries_Je.csv",
-            f"{project_id}/{execution_id}/je/{execution_id}_journal_entry_lines_Je.csv",
-            f"{project_id}/{execution_id}/sys/{execution_id}_trial_balance_sys.csv"
+            f"{project_id}/{execution_id}/{execution_id}_Je_cabecera.csv",
+            f"{project_id}/{execution_id}/{execution_id}_Je_detalles.csv",
+            f"{project_id}/{execution_id}/{execution_id}_Sys.csv"
         ]
 
         missing_files = []
@@ -101,12 +101,12 @@ class DatabaseUploadService:
             # Define blob relative paths (for SQL Server External Data Source)
             # The SPs expect paths relative to the blob container root
             # Files are in "libro-diario-resultados" container with structure:
-            # {project_id}/{execution_id}/je/ - Journal entries files
-            # {project_id}/{execution_id}/sys/ - Trial balance (sumas y saldos) file
+            # {project_id}/{execution_id}/ - Journal entries files
+            # {project_id}/{execution_id}/ - Trial balance (sumas y saldos) file
             blob_paths = {
-                "journal_entries": f"libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}_journal_entries_Je.csv",
-                "journal_entry_lines": f"libro-diario-resultados/{project_id}/{execution_id}/je/{execution_id}_journal_entry_lines_Je.csv",
-                "trial_balance": f"libro-diario-resultados/{project_id}/{execution_id}/sys/{execution_id}_trial_balance_sys.csv"
+                "journal_entries": f"libro-diario-resultados/{project_id}/{execution_id}/{execution_id}_Je_cabecera.csv",
+                "journal_entry_lines": f"libro-diario-resultados/{project_id}/{execution_id}/{execution_id}_Je_detalles.csv",
+                "trial_balance": f"libro-diario-resultados/{project_id}/{execution_id}/{execution_id}_Sys.csv"
             }
             
             logger.info(f"Blob paths configured:")

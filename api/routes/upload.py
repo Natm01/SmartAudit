@@ -498,7 +498,7 @@ async def upload_file(
                     "fiscal_year": fiscal_year
                 },
                 "storage": {
-                    "storage_relative_path": f"tenants/{tenant_id}/workspaces/{workspace_id}/"
+                    "storage_relative_path": f"libro-diario-resultados/{project_id}/{execution_id}/"
                 },
                 "archivo_subido_ahora": {
                     "file_type": file_type,
@@ -577,7 +577,7 @@ async def upload_file(
                             "fiscal_year": fiscal_year
                         },
                         "storage": {
-                            "storage_relative_path": f"tenants/{tenant_id}/workspaces/{workspace_id}/"
+                            "storage_relative_path": f"libro-diario-resultados/{project_id}/{execution_id}/"
                         },
                         "journal_entry": {
                             "je_file_type_code": 'XLSX' if je_ext in ['.xls', '.xlsx'] else 'CSV',
