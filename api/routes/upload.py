@@ -54,12 +54,12 @@ async def upload_large_file_background(execution_id: str, file_path: str,
         
         # Usar el nuevo método con nomenclatura simplificada
         blob_url = azure_service.upload_file_chunked(
-            file_path, 
+            file_path,
             execution_id=execution_id,
             container_type="upload",
             file_type=file_type,
             stage="upload",
-            keep_original_name=True,  # Mantener nombre original
+            keep_original_name=False,  # Solo ID y tipo de archivo
             progress_callback=progress_callback
         )
         
@@ -204,14 +204,12 @@ async def try_execute_audit_test_sp(
         tb_file_type_code = 'XLSX' if tb_ext in ['.xls', '.xlsx'] else 'CSV'
 
         # Construir los nombres de los archivos como se suben al blob storage
-        # Formato: {execution_id}_{nombre_sin_ext}_{file_type}.{extension}
+        # Formato: {execution_id}_{file_type}.{extension}
         je_original_name = getattr(je_execution, 'file_name', '')
-        je_name_without_ext = os.path.splitext(je_original_name)[0]
-        je_blob_name = f"{je_execution_id}_{je_name_without_ext}_Je{je_ext}"
+        je_blob_name = f"{je_execution_id}_Je{je_ext}"
 
         tb_original_name = getattr(tb_execution, 'file_name', '')
-        tb_name_without_ext = os.path.splitext(tb_original_name)[0]
-        tb_blob_name = f"{tb_execution_id}_{tb_name_without_ext}_Sys{tb_ext}"
+        tb_blob_name = f"{tb_execution_id}_Sys{tb_ext}"
 
         # Ejecutar el SP
         result = audit_service.insert_audit_test_exec_je_analysis(
@@ -413,7 +411,7 @@ async def upload_file(
                     execution_id=execution_id,
                     file_type=file_type,
                     stage="upload",
-                    keep_original_name=True  # Mantener el nombre original
+                    keep_original_name=False  # Solo ID y tipo de archivo
                 )
 
                 file_path = blob_url
@@ -432,9 +430,8 @@ async def upload_file(
             os.makedirs(settings.full_upload_dir, exist_ok=True)
 
             # Aplicar naming estructurado también en local
-            name_without_ext = os.path.splitext(original_filename)[0]
             extension = os.path.splitext(original_filename)[1]
-            local_filename = f"{execution_id}_{name_without_ext}_{file_type}{extension}"
+            local_filename = f"{execution_id}_{file_type}{extension}"
             file_path = os.path.join(settings.full_upload_dir, local_filename)
 
             with open(file_path, "wb") as buffer:
@@ -463,13 +460,12 @@ async def upload_file(
         
         message = "Large file upload started in background" if file_path.startswith("uploading_to_azure://") else "File uploaded successfully"
 
-        # Obtener nombre y extensión para el log
-        name_without_ext = os.path.splitext(original_filename)[0]
+        # Obtener extensión para el log
         extension = os.path.splitext(original_filename)[1]
 
         print(f" Upload completed: {execution_id}")
         print(f"   Original: {original_filename}")
-        print(f"   Blob name: {execution_id}_{name_without_ext}_{file_type}{extension}")
+        print(f"   Blob name: {execution_id}_{file_type}{extension}")
         print(f"   Storage path: {file_path}")
         if parent_execution_id:
             print(f"   Parent execution: {parent_execution_id}")
@@ -554,12 +550,10 @@ async def upload_file(
 
                     # Construir nombres de blobs
                     je_orig_name = getattr(je_execution, 'file_name', '')
-                    je_name_no_ext = os.path.splitext(je_orig_name)[0]
-                    je_blob_name = f"{je_exec_id}_{je_name_no_ext}_Je{je_ext}"
+                    je_blob_name = f"{je_exec_id}_Je{je_ext}"
 
                     tb_orig_name = getattr(tb_execution, 'file_name', '')
-                    tb_name_no_ext = os.path.splitext(tb_orig_name)[0]
-                    tb_blob_name = f"{tb_exec_id}_{tb_name_no_ext}_Sys{tb_ext}"
+                    tb_blob_name = f"{tb_exec_id}_Sys{tb_ext}"
 
                     sp_params_for_frontend = {
                         "usuario_y_contexto": {
