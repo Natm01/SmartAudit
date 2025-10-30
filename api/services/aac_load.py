@@ -271,12 +271,61 @@ class AccountingDataLoader:
             print(f"EXECUTING SP")
         print(f"Stored Procedure: {sp_name}")
         print(f"Execution ID: {self.execution_id}")
+        print(f"Auth User ID: {self.platform_user_id}")
         print("-" * 80)
+
+        # ===================================================================
+        # LOGGING: Mostrar qué archivo está buscando el SP
+        # ===================================================================
+        if file_type and 'load' in sp_name.lower():
+            try:
+                print("\n🔍 DEBUG: Verificando archivo en base de datos...")
+                # Query para obtener los nombres de archivo de la BD
+                cursor.execute("""
+                    SELECT TOP 1
+                        je_file_name,
+                        tb_file_name,
+                        storage_relative_path,
+                        je_file_extension,
+                        tb_file_extension
+                    FROM audit_test.audit_test_exec_je_analysis
+                    WHERE external_gid = ?
+                """, (self.execution_id,))
+
+                file_info = cursor.fetchone()
+                if file_info:
+                    print(f"📝 Nombres de archivo en BD:")
+                    print(f"   - je_file_name: {file_info.je_file_name}")
+                    print(f"   - tb_file_name: {file_info.tb_file_name}")
+                    print(f"   - storage_relative_path: {file_info.storage_relative_path}")
+                    print(f"   - je_file_extension: {file_info.je_file_extension}")
+                    print(f"   - tb_file_extension: {file_info.tb_file_extension}")
+
+                    # Construir la ruta probable que el SP va a buscar
+                    if 'journal_entries' in sp_name.lower():
+                        probable_path = f"{file_info.storage_relative_path}{file_info.je_file_name}.{file_info.je_file_extension}"
+                        print(f"\n🎯 PROBABLE ARCHIVO QUE VA A BUSCAR EL SP:")
+                        print(f"   {probable_path}")
+                    elif 'trial_balance' in sp_name.lower():
+                        probable_path = f"{file_info.storage_relative_path}{file_info.tb_file_name}.{file_info.tb_file_extension}"
+                        print(f"\n🎯 PROBABLE ARCHIVO QUE VA A BUSCAR EL SP:")
+                        print(f"   {probable_path}")
+                else:
+                    print("⚠️  No se encontró información de archivo en la BD para este execution_id")
+                print()
+            except Exception as e:
+                print(f"⚠️  Error al consultar info de archivo: {e}\n")
+        # ===================================================================
+
+        print(f"Ejecutando SP con parámetros:")
+        print(f"   @auth_user_id = {self.platform_user_id}")
+        print(f"   @je_analysis_exec_gid = {self.execution_id}")
+        print()
 
         try:
             cursor.execute(f"""
                 EXEC {sp_name}
-                    @auth_user_id = ?, 
+                    @auth_user_id = ?,
                     @je_analysis_exec_gid = ?
             """, (self.platform_user_id, self.execution_id))
             
