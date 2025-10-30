@@ -22,8 +22,7 @@ router = APIRouter(prefix="/smau-proto/api/import", tags=["database_upload"])
 class DatabaseUploadRequest(BaseModel):
     """Request to upload data to database"""
     execution_id: str
-    dataset_version_id: Optional[int] = 201
-    needs_mapping: Optional[bool] = False
+    auth_user_id: int
 
 
 class DatabaseUploadResponse(BaseModel):
@@ -38,52 +37,46 @@ class DatabaseUploadStatusResponse(BaseModel):
     execution_id: str
     status: str
     step: Optional[str] = None
-    progress: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
-    totality_report_url: Optional[str] = None
+    elapsed_time: Optional[float] = None
 
 
 # ==========================================
 # Background Task
 # ==========================================
 
-async def upload_to_database_background(execution_id: str, dataset_version_id: int, needs_mapping: bool):
+async def upload_to_database_background(execution_id: str, auth_user_id: int):
     """Background task for database upload"""
     execution_service = get_execution_service()
     db_upload_service = get_database_upload_service()
-    
+
     try:
         logger.info(f"Starting database upload for execution {execution_id}")
-        
+
         # Update status to processing
         execution_service.update_execution(
             execution_id,
             status="processing",
             step="database_upload"
         )
-        
+
         # Execute database upload
         result = await db_upload_service.upload_to_database(
             execution_id=execution_id,
-            dataset_version_id=dataset_version_id,
-            needs_mapping=needs_mapping
+            auth_user_id=auth_user_id
         )
-        
+
         if result["success"]:
             # Update execution with success
             update_data = {
                 "status": "completed",
                 "step": "database_upload"
             }
-            
-            # Add totality report URL if available
-            if result.get("totality_report_url"):
-                update_data["result_path"] = result["totality_report_url"]
-            
+
             execution_service.update_execution(execution_id, **update_data)
-            
+
             logger.info(f"Database upload completed successfully for {execution_id}")
-            
+
         else:
             # Update execution with error
             error_msg = result.get("error", "Unknown error during database upload")
@@ -93,13 +86,13 @@ async def upload_to_database_background(execution_id: str, dataset_version_id: i
                 step="database_upload",
                 error=error_msg
             )
-            
+
             logger.error(f"Database upload failed for {execution_id}: {error_msg}")
-            
+
     except Exception as e:
         error_msg = f"Database upload error: {str(e)}"
         logger.error(f"Error in database upload background task: {error_msg}")
-        
+
         execution_service.update_execution(
             execution_id,
             status="failed",
@@ -119,49 +112,49 @@ async def start_database_upload(
 ):
     """
     Start database upload process for accounting data.
-    
-    This endpoint:
-    1. Validates that the execution exists and has required files
-    2. Starts background task to load data to SQL Server
-    3. Returns immediately while processing continues
-    
-    Required files in blob storage:
-    - {execution_id}_Je_cabecera.csv
-    - {execution_id}_Je_detalles.csv
-    - {execution_id}_Sys.csv
+
+    This endpoint executes 3 stored procedures in the background:
+    1. staging.sp_load_journal_entries_csv_from_blob
+    2. staging.sp_load_journal_entry_lines_csv_from_blob
+    3. staging.sp_load_trial_balance_csv_from_blob
+
+    Each SP receives:
+    - @auth_user_id: The authenticated user ID
+    - @je_analysis_exec_gid: The execution ID (GUID)
+
+    The SPs handle internally:
+    - Resolving dataset_version_id from execution_id
+    - Finding blob paths for the CSV files
+    - Data validation
+    - Loading data to staging tables
+
+    Args:
+        request: DatabaseUploadRequest with execution_id and auth_user_id
+
+    Returns:
+        DatabaseUploadResponse with execution_id, message, and status
     """
     execution_service = get_execution_service()
-    db_upload_service = get_database_upload_service()
-    
+
     try:
         # Validate execution exists
         execution = execution_service.get_execution(request.execution_id)
-        
-        # Validate required files exist in blob storage
-        validation_result = await db_upload_service.validate_files_exist(request.execution_id)
-        
-        if not validation_result["valid"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Required files not found: {validation_result['missing_files']}"
-            )
-        
+
         # Start background task
         background_tasks.add_task(
             upload_to_database_background,
             request.execution_id,
-            request.dataset_version_id,
-            request.needs_mapping
+            request.auth_user_id
         )
-        
+
         logger.info(f"Database upload started for execution {request.execution_id}")
-        
+
         return DatabaseUploadResponse(
             execution_id=request.execution_id,
             message="Database upload started successfully",
             status="processing"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -176,27 +169,23 @@ async def start_database_upload(
 async def get_database_upload_status(execution_id: str):
     """
     Get status of database upload process.
-    
+
     Returns current status and progress information.
     """
     execution_service = get_execution_service()
-    
+
     try:
         execution = execution_service.get_execution(execution_id)
-        
+
         response = DatabaseUploadStatusResponse(
             execution_id=execution_id,
             status=execution.status,
             step=execution.step,
             error=execution.error
         )
-        
-        # Add result path if available (totality report)
-        if execution.result_path:
-            response.totality_report_url = execution.result_path
-        
+
         return response
-        
+
     except HTTPException:
         raise
     except Exception as e:
